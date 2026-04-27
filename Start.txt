@@ -1,0 +1,21 @@
+Wenn nicht installiert:
+python -m pip install -r requirements.txt
+
+Setup-Schritte:
+
+In API-Folder: python main.py
+QGroundControl starten (für Simulation)
+
+Im DroneWebGUI Ordner:
+Blazor-Frontend: dotnet run--build Im DroneWebGUI Ordner
+
+Testen:
+WebGUI im Browser öffnen
+
+cd ~/ardupilot/ArduCopter 
+../Tools/autotest/sim_vehicle.py -v ArduCopter
+
+../Tools/autotest/sim_vehicle.py -v ArduCopter -f quad --console --wipe
+output add 192.168.240.1:14551
+
+Befehle in WebGui senden

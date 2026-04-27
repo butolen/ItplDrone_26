@@ -1,0 +1,236 @@
+﻿@page "/"
+@inject DroneApiService Drone
+
+<h1>🚁 Drone Control (Advanced)</h1>
+
+<div class="grid">
+
+    <!-- CONNECTION -->
+    <div class="card">
+        <h3>Connection</h3>
+
+        <input @bind="connectionString" placeholder="Connection String" />
+        <input type="number" @bind="baudRate" />
+        <input type="number" @bind="heartbeat" step="0.1" />
+
+        <button @onclick="Connect">Connect</button>
+        <button @onclick="Disconnect">Disconnect</button>
+    </div>
+
+    <!-- MODE -->
+    <div class="card">
+        <h3>Mode</h3>
+
+        <select @bind="selectedMode">
+            <option>GUIDED</option>
+            <option>STABILIZE</option>
+            <option>LOITER</option>
+            <option>RTL</option>
+            <option>LAND</option>
+        </select>
+
+        <button @onclick="SetMode">Set Mode</button>
+    </div>
+
+    <!-- ARM / TAKEOFF -->
+    <div class="card">
+        <h3>Flight</h3>
+
+        <input type="number" @bind="takeoffAltitude" placeholder="Altitude (m)" />
+
+        <button @onclick="Arm">Arm</button>
+        <button @onclick="Disarm">Disarm</button>
+        <button @onclick="Takeoff">Takeoff</button>
+
+        <button class="danger" @onclick="Land">LAND</button>
+        <button class="warning" @onclick="RTL">RTL</button>
+    </div>
+
+    <!-- VELOCITY -->
+    <div class="card">
+        <h3>Velocity (Body)</h3>
+
+        <label>VX (Forward)</label>
+        <input type="number" @bind="vx" step="0.1" />
+
+        <label>VY (Right)</label>
+        <input type="number" @bind="vy" step="0.1" />
+
+        <label>VZ (Down)</label>
+        <input type="number" @bind="vz" step="0.1" />
+
+        <label>Duration</label>
+        <input type="number" @bind="duration" step="0.1" />
+
+        <button @onclick="SendVelocity">Send Velocity</button>
+
+        <button @onclick="Forward">⬆️</button>
+        <button @onclick="Back">⬇️</button>
+        <button @onclick="Left">⬅️</button>
+        <button @onclick="Right">➡️</button>
+        <button @onclick="Stop">STOP</button>
+    </div>
+
+    <!-- POSITION -->
+    <div class="card">
+        <h3>Local Position</h3>
+
+        <input type="number" @bind="posX" placeholder="X" />
+        <input type="number" @bind="posY" placeholder="Y" />
+        <input type="number" @bind="posZ" placeholder="Z (- = up)" />
+
+        <button @onclick="GoToPosition">Go</button>
+    </div>
+
+    <!-- YAW -->
+    <div class="card">
+        <h3>Yaw</h3>
+
+        <input type="number" @bind="yaw" placeholder="Degrees" />
+        <input type="number" @bind="yawSpeed" placeholder="Speed" />
+        <label>
+            <input type="checkbox" @bind="yawRelative" />
+            Relative
+        </label>
+
+        <button @onclick="SendYaw">Rotate</button>
+    </div>
+
+</div>
+
+<!-- STATUS -->
+<div class="status">
+    <h3>Status</h3>
+    <p>@status</p>
+
+    @if (!string.IsNullOrEmpty(error))
+    {
+        <pre class="error">@error</pre>
+    }
+
+    @if (!string.IsNullOrEmpty(response))
+    {
+        <pre>@response</pre>
+    }
+</div>
+
+<style>
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+    }
+
+    .card {
+        padding: 15px;
+        border-radius: 10px;
+        background: #1e1e1e;
+        color: white;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    input, select {
+        padding: 6px;
+    }
+
+    button {
+        padding: 8px;
+        cursor: pointer;
+    }
+
+    .danger { background: red; color: white; }
+    .warning { background: orange; }
+
+    .status {
+        margin-top: 20px;
+    }
+
+    .error {
+        color: red;
+    }
+</style>
+
+@code {
+    string status = "Ready";
+    string error = "";
+    string response = "";
+
+    // Connection
+    string connectionString = "udpin:0.0.0.0:14551";
+    int baudRate = 57600;
+    double heartbeat = 10;
+
+    // Mode
+    string selectedMode = "GUIDED";
+
+    // Flight
+    double takeoffAltitude = 5;
+
+    // Velocity
+    double vx = 2;
+    double vy = 0;
+    double vz = 0;
+    double duration = 2;
+
+    // Position
+    double posX = 0;
+    double posY = 0;
+    double posZ = -5;
+
+    // Yaw
+    double yaw = 90;
+    double yawSpeed = 20;
+    bool yawRelative = false;
+
+    async Task Handle(string name, Func<Task<DroneApiService.ApiResponse<object>>> action)
+    {
+        error = "";
+        response = "";
+        status = $"{name}...";
+
+        var result = await action();
+
+        if (result.Success)
+        {
+            status = $"{name} OK";
+            response = result.ResponseBody ?? "";
+        }
+        else
+        {
+            status = $"{name} FAILED";
+            error = result.ErrorMessage + "\n" + result.ResponseBody;
+        }
+    }
+
+    Task Connect() => Handle("Connect", () => Drone.PostAsync<object>("/connect", new {
+        connection_string = connectionString,
+        baud_rate = baudRate,
+        heartbeat_timeout_seconds = heartbeat
+    }));
+
+    Task Disconnect() => Handle("Disconnect", Drone.Disconnect);
+
+    Task SetMode() => Handle("Set Mode", () => Drone.SetMode(selectedMode));
+
+    Task Arm() => Handle("Arm", Drone.Arm);
+    Task Disarm() => Handle("Disarm", Drone.Disarm);
+
+    Task Takeoff() => Handle("Takeoff", () => Drone.Takeoff(takeoffAltitude));
+
+    Task Land() => Handle("Land", Drone.Land);
+    Task RTL() => Handle("RTL", Drone.ReturnToLaunch);
+
+    Task SendVelocity() => Handle("Velocity", () => Drone.SendVelocity(vx, vy, vz, duration));
+
+    Task Forward() => Handle("Forward", Drone.MoveForward);
+    Task Back() => Handle("Back", Drone.MoveBack);
+    Task Left() => Handle("Left", Drone.MoveLeft);
+    Task Right() => Handle("Right", Drone.MoveRight);
+    Task Stop() => Handle("Stop", Drone.Stop);
+
+    Task GoToPosition() => Handle("GoTo", () => Drone.GoToLocalPosition(posX, posY, posZ));
+
+    Task SendYaw() => Handle("Yaw", () => Drone.Yaw(yaw, yawSpeed, yawRelative));
+}

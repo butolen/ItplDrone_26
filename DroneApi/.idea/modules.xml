@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/DroneApi/.idea/MavlinkSender.iml" filepath="$PROJECT_DIR$/DroneApi/.idea/MavlinkSender.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/MavlinkSender.iml" filepath="$PROJECT_DIR$/.idea/MavlinkSender.iml" />
     </modules>
   </component>
 </project>
