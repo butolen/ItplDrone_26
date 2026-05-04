@@ -10,6 +10,7 @@ from models.models import (
     ModeRequest,
     RawCommandRequest,
     TakeoffRequest,
+    ThrottleRequest,
     VelocityBodyRequest,
     YawRequest,
 )
@@ -85,8 +86,32 @@ def disarm() -> dict:
 @app.post("/takeoff")
 def takeoff(request: TakeoffRequest) -> dict:
     try:
-        drone_controller.takeoff(request.altitude_meters)
-        return {"success": True, "altitude_meters": request.altitude_meters}
+        drone_controller.takeoff(
+            throttle_pwm=request.throttle_pwm,
+            duration_seconds=request.duration_seconds,
+            arm_first=request.arm_first
+        )
+        return {
+            "success": True,
+            "throttle_pwm": request.throttle_pwm,
+            "duration_seconds": request.duration_seconds
+        }
+    except Exception as exception:
+        raise HTTPException(status_code=500, detail=str(exception))
+
+
+@app.post("/throttle")
+def throttle(request: ThrottleRequest) -> dict:
+    try:
+        drone_controller.send_throttle(
+            throttle_pwm=request.throttle_pwm,
+            duration_seconds=request.duration_seconds
+        )
+        return {
+            "success": True,
+            "throttle_pwm": request.throttle_pwm,
+            "duration_seconds": request.duration_seconds
+        }
     except Exception as exception:
         raise HTTPException(status_code=500, detail=str(exception))
 

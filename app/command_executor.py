@@ -8,9 +8,9 @@ class CommandExecutor:
         self._drone_controller = drone_controller
 
     def initialize_for_guided_flight(self, takeoff_altitude_meters: float) -> None:
-        self._drone_controller.set_mode("GUIDED")
+        self._drone_controller.set_mode("ALT_HOLD")
         self._drone_controller.arm()
-        self._drone_controller.takeoff(takeoff_altitude_meters)
+        self._drone_controller.takeoff()
 
     def move_forward(self, speed_meters_per_second: float, duration_seconds: float) -> None:
         self._drone_controller.move_body_for_duration(speed_meters_per_second, 0.0, 0.0, duration_seconds)
