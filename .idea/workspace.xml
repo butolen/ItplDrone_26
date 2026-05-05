@@ -11,23 +11,21 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="40043bf5-9493-48d5-bc99-c5202c9d720c" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/DroneApi/get-pip.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/ITPDroneGUI/Model/ConnectRequest.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/ITPDroneGUI/Services/DroneApiService.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Start.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/DroneApi/.idea/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/MavlinkSender.iml" beforeDir="false" afterPath="$PROJECT_DIR$/DroneApi/.idea/MavlinkSender.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/DroneApi/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/DroneApi/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/DroneApi/.idea/modules.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/DroneApi/.idea/vcs.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/DroneApi/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api.py" beforeDir="false" afterPath="$PROJECT_DIR$/DroneApi/app/api.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/command_executor.py" beforeDir="false" afterPath="$PROJECT_DIR$/DroneApi/app/command_executor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/drone_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/DroneApi/app/drone_controller.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/DroneApi/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/models/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/DroneApi/models/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/DroneApi/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/bin/Debug/net9.0/ITPDroneGUI.dll" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/bin/Debug/net9.0/ITPDroneGUI.dll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/bin/Debug/net9.0/ITPDroneGUI.exe" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/bin/Debug/net9.0/ITPDroneGUI.exe" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/bin/Debug/net9.0/ITPDroneGUI.pdb" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/bin/Debug/net9.0/ITPDroneGUI.pdb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.AssemblyInfo.cs" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.AssemblyInfo.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.AssemblyInfoInputs.cache" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.AssemblyInfoInputs.cache" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.dll" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.dll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.pdb" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.pdb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.sourcelink.json" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.sourcelink.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/apphost.exe" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/apphost.exe" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ref/ITPDroneGUI.dll" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ref/ITPDroneGUI.dll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/refint/ITPDroneGUI.dll" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/refint/ITPDroneGUI.dll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/rjsmcshtml.dswa.cache.json" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/rjsmcshtml.dswa.cache.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/rjsmrazor.dswa.cache.json" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/rjsmrazor.dswa.cache.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Start.txt" beforeDir="false" afterPath="$PROJECT_DIR$/Start.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -55,12 +53,11 @@
   <component name="HighlightingSettingsPerFile">
     <setting file="file://$PROJECT_DIR$/ITPDroneGUI/Components/App.razor" root0="SKIP_HIGHLIGHTING" root1="FORCE_HIGHLIGHTING" root2="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/ITPDroneGUI/Components/Layout/MainLayout.razor" root0="SKIP_HIGHLIGHTING" root1="FORCE_HIGHLIGHTING" root2="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/ITPDroneGUI/Components/Pages/Home.razor" root0="SKIP_HIGHLIGHTING" root1="FORCE_HIGHLIGHTING" root2="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/ITPDroneGUI/Model/ConnectRequest.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/ITPDroneGUI/Program.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="mock://C:/Users/manue/Documents/GitHub/ItplDrone_26/ITPDroneGUI/Services/DroneApiService.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/ITPDroneGUI/Services/DroneApiService.cs" root0="SKIP_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/ITPDroneGUI/appsettings.json" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/ITPDroneGUI/Components/Pages/Home.razor" root0="FORCE_HIGHLIGHTING" root1="FORCE_HIGHLIGHTING" root2="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/ITPDroneGUI/Model/ConnectRequest.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/ITPDroneGUI/Program.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/ITPDroneGUI/Services/DroneApiService.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/ITPDroneGUI/appsettings.json" root0="FORCE_HIGHLIGHTING" />
   </component>
   <component name="KubernetesApiPersistence">{}</component>
   <component name="KubernetesApiProvider">{
@@ -167,7 +164,9 @@
       <workItem from="1776770131565" duration="5000" />
       <workItem from="1776770253968" duration="233000" />
       <workItem from="1776770506310" duration="4385000" />
-      <workItem from="1777270129390" duration="3825000" />
+      <workItem from="1777270129390" duration="3899000" />
+      <workItem from="1777873830810" duration="278000" />
+      <workItem from="1777877047352" duration="863000" />
     </task>
     <servers />
   </component>
