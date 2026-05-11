@@ -13,6 +13,8 @@ class DroneController:
     RC_MAX = 2000
     RC_IGNORE = 65535
     CONTROL_PWM_RANGE = 400
+    DEFAULT_THROTTLE_DURATION_SECONDS = 2.0
+    MAVLINK_CONTROL_INTERVAL_SECONDS = 0.05
 
     def __init__(self) -> None:
         self._master: Optional[mavutil.mavfile] = None
@@ -145,11 +147,37 @@ class DroneController:
     def rtl(self) -> None:
         raise RuntimeError("RTL needs GPS. Use /land or /throttle for this no-GPS setup.")
 
-    def send_throttle(self, throttle_pwm: int, duration_seconds: float = 0.0) -> None:
-        self.send_rc_override(throttle=throttle_pwm, duration_seconds=duration_seconds)
+    def send_throttle(self, throttle_pwm: int, duration_seconds: float = 0.0) -> float:
+        effective_duration = duration_seconds
+        if effective_duration <= 0:
+            effective_duration = self.DEFAULT_THROTTLE_DURATION_SECONDS
+
+        thrust = self.pwm_to_thrust(throttle_pwm)
+        end_time = time.time() + effective_duration
+
+        while True:
+            with self._lock:
+                self.master.mav.set_attitude_target_send(
+                    int((time.time() * 1000) % 0xFFFFFFFF),
+                    self.master.target_system,
+                    self.master.target_component,
+                    7,
+                    [1.0, 0.0, 0.0, 0.0],
+                    0.0,
+                    0.0,
+                    0.0,
+                    thrust
+                )
+
+            if time.time() >= end_time:
+                break
+
+            time.sleep(self.MAVLINK_CONTROL_INTERVAL_SECONDS)
+
+        return effective_duration
 
     def stop_motors(self) -> None:
-        self.send_rc_override(throttle=self.RC_MIN, duration_seconds=0.2, release_after=True)
+        self.send_throttle(self.RC_MIN, duration_seconds=0.2)
 
     def send_velocity_body(self, vx: float, vy: float, vz: float) -> None:
         roll = self.RC_NEUTRAL + self._scaled_control(vy)
@@ -176,7 +204,7 @@ class DroneController:
         self.release_rc_override()
 
     def goto_local_ned(self, x: float, y: float, z: float) -> None:
-        raise RuntimeError("Local position control needs GPS/position estimate. Use /velocity/body instead.")
+        raise RuntimeError("Local position control needs GPS/position estimate. Use /sim/rc instead.")
 
     def set_yaw(
         self,
@@ -188,6 +216,41 @@ class DroneController:
         amount = min(abs(yaw_speed_deg_per_sec) / 100.0, 1.0)
         yaw_pwm = self.RC_NEUTRAL + int(direction * amount * self.CONTROL_PWM_RANGE)
         self.send_rc_override(yaw=yaw_pwm, duration_seconds=0.5)
+
+    def send_simulated_rc(
+        self,
+        forward: float | None = None,
+        right: float | None = None,
+        up: float | None = None,
+        yaw: float | None = None,
+        roll_pwm: int | None = None,
+        pitch_pwm: int | None = None,
+        throttle_pwm: int | None = None,
+        yaw_pwm: int | None = None,
+        aux1_pwm: int | None = None,
+        aux2_pwm: int | None = None,
+        aux3_pwm: int | None = None,
+        aux4_pwm: int | None = None,
+        duration_seconds: float = 0.0,
+        release_after: bool = False
+    ) -> list[int]:
+        roll = roll_pwm if roll_pwm is not None else self._axis_to_pwm(right)
+        pitch = pitch_pwm if pitch_pwm is not None else self._axis_to_pwm(forward, invert=True)
+        throttle = throttle_pwm if throttle_pwm is not None else self._axis_to_pwm(up)
+        yaw_channel = yaw_pwm if yaw_pwm is not None else self._axis_to_pwm(yaw)
+
+        return self.send_rc_override(
+            roll=roll,
+            pitch=pitch,
+            throttle=throttle,
+            yaw=yaw_channel,
+            aux1=aux1_pwm,
+            aux2=aux2_pwm,
+            aux3=aux3_pwm,
+            aux4=aux4_pwm,
+            duration_seconds=duration_seconds,
+            release_after=release_after
+        )
 
     def send_raw_command(
         self,
@@ -215,24 +278,67 @@ class DroneController:
                 param7
             )
 
+    def run_motor_test(
+        self,
+        motor: int,
+        throttle_percent: float = 10.0,
+        duration_seconds: float = 2.0,
+        ack_timeout_seconds: float = 3.0
+    ) -> dict[str, Any]:
+        with self._lock:
+            self.master.mav.command_long_send(
+                self.master.target_system,
+                self.master.target_component,
+                mavutil.mavlink.MAV_CMD_DO_MOTOR_TEST,
+                0,
+                motor,
+                0,
+                throttle_percent,
+                duration_seconds,
+                0,
+                0,
+                0
+            )
+
+        end_time = time.time() + ack_timeout_seconds
+        while time.time() < end_time:
+            with self._lock:
+                ack = self.master.recv_match(type="COMMAND_ACK", blocking=True, timeout=0.2)
+
+            if ack is None or int(ack.command) != mavutil.mavlink.MAV_CMD_DO_MOTOR_TEST:
+                continue
+
+            return {
+                "ack": True,
+                "command": int(ack.command),
+                "result": int(ack.result),
+                "result_name": mavutil.mavlink.enums["MAV_RESULT"][int(ack.result)].name
+            }
+
+        return {"ack": False}
+
     def send_rc_override(
         self,
         roll: int | None = None,
         pitch: int | None = None,
         throttle: int | None = None,
         yaw: int | None = None,
+        aux1: int | None = None,
+        aux2: int | None = None,
+        aux3: int | None = None,
+        aux4: int | None = None,
         duration_seconds: float = 0.0,
         release_after: bool = False
-    ) -> None:
+    ) -> list[int]:
         channels = [
             self._pwm_or_ignore(roll),
             self._pwm_or_ignore(pitch),
             self._pwm_or_ignore(throttle),
             self._pwm_or_ignore(yaw),
-            self.RC_IGNORE,
-            self.RC_IGNORE,
-            self.RC_IGNORE,
-            self.RC_IGNORE,
+            self._pwm_or_ignore(aux1),
+            self._pwm_or_ignore(aux2),
+            self._pwm_or_ignore(aux3),
+            self._pwm_or_ignore(aux4),
         ]
 
         end_time = time.time() + duration_seconds
@@ -251,6 +357,8 @@ class DroneController:
 
         if release_after:
             self.release_rc_override()
+
+        return channels
 
     def release_rc_override(self) -> None:
         with self._lock:
@@ -329,10 +437,24 @@ class DroneController:
         value = max(-1.0, min(1.0, value))
         return int(value * self.CONTROL_PWM_RANGE)
 
+    def _axis_to_pwm(self, value: float | None, invert: bool = False) -> int | None:
+        if value is None:
+            return None
+
+        scaled = self._scaled_control(value)
+        if invert:
+            scaled = -scaled
+
+        return self.RC_NEUTRAL + scaled
+
     def _pwm_or_ignore(self, value: int | None) -> int:
         if value is None:
             return self.RC_IGNORE
         return max(self.RC_MIN, min(self.RC_MAX, int(value)))
+
+    def pwm_to_thrust(self, pwm: int) -> float:
+        pwm = max(self.RC_MIN, min(self.RC_MAX, int(pwm)))
+        return (pwm - self.RC_MIN) / (self.RC_MAX - self.RC_MIN)
 
     @staticmethod
     def _mavlink_text_to_str(value: Any) -> str:
