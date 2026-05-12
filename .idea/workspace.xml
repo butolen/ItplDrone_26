@@ -11,6 +11,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="40043bf5-9493-48d5-bc99-c5202c9d720c" name="Changes" comment="">
+<<<<<<< Updated upstream
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/DroneApi/app/api.py" beforeDir="false" afterPath="$PROJECT_DIR$/DroneApi/app/api.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/DroneApi/app/command_executor.py" beforeDir="false" afterPath="$PROJECT_DIR$/DroneApi/app/command_executor.py" afterDir="false" />
@@ -52,6 +53,10 @@
       <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/project.nuget.cache" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/project.nuget.cache" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/project.packagespec.json" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/project.packagespec.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/rider.project.restore.info" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/rider.project.restore.info" afterDir="false" />
+=======
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/bin/Debug/net9.0/ITPDroneGUI.dll" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/bin/Debug/net9.0/ITPDroneGUI.dll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/bin/Debug/net9.0/ITPDroneGUI.exe" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/bin/Debug/net9.0/ITPDroneGUI.exe" afterDir="false" />
+>>>>>>> Stashed changes
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -119,11 +124,17 @@
     ".NET Launch Settings Profile.BlazorApp1: http.executor": "Run",
     ".NET Launch Settings Profile.ITPDroneGUI: http.executor": "Run",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
+<<<<<<< Updated upstream
     "Python.main.executor": "Run",
     "RunOnceActivity.MCP Project settings loaded": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
     "git-widget-placeholder": "test-1webui",
+=======
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "main",
+>>>>>>> Stashed changes
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -132,7 +143,11 @@
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
+<<<<<<< Updated upstream
   <component name="RunManager" selected="Python.main">
+=======
+  <component name="RunManager" selected=".NET Launch Settings Profile.ITPDroneGUI: http">
+>>>>>>> Stashed changes
     <configuration name="BlazorApp1: http" type="LaunchSettings" factoryName=".NET Launch Settings Profile">
       <option name="LAUNCH_PROFILE_PROJECT_FILE_PATH" value="$PROJECT_DIR$/DroneWebGUI/DroneWebGUI.csproj" />
       <option name="LAUNCH_PROFILE_TFM" value="net9.0" />
@@ -144,7 +159,6 @@
       <option name="SHOW_IIS_EXPRESS_OUTPUT" value="0" />
       <option name="SEND_DEBUG_REQUEST" value="1" />
       <option name="ADDITIONAL_IIS_EXPRESS_ARGUMENTS" value="" />
-      <option name="AUTO_ATTACH_CHILDREN" value="0" />
       <method v="2">
         <option name="Build" />
       </method>
@@ -160,7 +174,6 @@
       <option name="SHOW_IIS_EXPRESS_OUTPUT" value="0" />
       <option name="SEND_DEBUG_REQUEST" value="1" />
       <option name="ADDITIONAL_IIS_EXPRESS_ARGUMENTS" value="" />
-      <option name="AUTO_ATTACH_CHILDREN" value="0" />
       <method v="2">
         <option name="Build" />
       </method>
@@ -176,7 +189,6 @@
       <option name="SHOW_IIS_EXPRESS_OUTPUT" value="0" />
       <option name="SEND_DEBUG_REQUEST" value="1" />
       <option name="ADDITIONAL_IIS_EXPRESS_ARGUMENTS" value="" />
-      <option name="AUTO_ATTACH_CHILDREN" value="0" />
       <method v="2">
         <option name="Build" />
       </method>
@@ -192,7 +204,6 @@
       <option name="SHOW_IIS_EXPRESS_OUTPUT" value="0" />
       <option name="SEND_DEBUG_REQUEST" value="1" />
       <option name="ADDITIONAL_IIS_EXPRESS_ARGUMENTS" value="" />
-      <option name="AUTO_ATTACH_CHILDREN" value="0" />
       <method v="2">
         <option name="Build" />
       </method>
