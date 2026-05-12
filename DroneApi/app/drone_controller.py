@@ -360,6 +360,8 @@ class DroneController:
         attitude = self.master.recv_match(type="ATTITUDE", blocking=False)
         altitude = self.master.recv_match(type="ALTITUDE", blocking=False)
         global_position = self.master.recv_match(type="GLOBAL_POSITION_INT", blocking=False)
+        sys_status = self.master.recv_match(type="SYS_STATUS", blocking=False)
+        battery_status = self.master.recv_match(type="BATTERY_STATUS", blocking=False)
 
         result: dict[str, Any] = {
             "connected": True,
@@ -387,6 +389,17 @@ class DroneController:
 
         if global_position is not None:
             result["relative_altitude_m"] = float(global_position.relative_alt) / 1000.0
+
+        if sys_status is not None:
+            if int(sys_status.battery_remaining) >= 0:
+                result["battery_remaining_percent"] = int(sys_status.battery_remaining)
+            if int(sys_status.voltage_battery) > 0:
+                result["battery_voltage_v"] = float(sys_status.voltage_battery) / 1000.0
+
+        if battery_status is not None:
+            remaining = int(getattr(battery_status, "battery_remaining", -1))
+            if remaining >= 0:
+                result["battery_remaining_percent"] = remaining
 
         return result
 

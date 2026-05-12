@@ -1,0 +1,945 @@
+@page "/procedure"
+@implements IAsyncDisposable
+@inject DroneApiService Drone
+
+<PageTitle>DroneForge</PageTitle>
+
+<div class="forge-page">
+    <header class="forge-toolbar">
+        <div class="brand">
+            <div class="brand-mark" aria-hidden="true">
+                <span></span><span></span><span></span><span></span>
+            </div>
+            <span>DroneForge</span>
+        </div>
+
+        <div class="telemetry">
+            <span>ALT: @AltitudeLabel</span>
+            <span>BAT: @BatteryLabel</span>
+        </div>
+
+        <div class="mission-actions">
+            <button class="run-button" type="button" @onclick="RunMissionAsync" disabled="@(!CanRunMission)">
+                <span class="play-icon"></span>
+                RUN MISSION
+            </button>
+            <button class="abort-button" type="button" @onclick="AbortMissionAsync" disabled="@(!isRunning && !isConnected)">ABORT MISSION</button>
+        </div>
+    </header>
+
+    <main class="forge-workbench">
+        <aside class="block-palette">
+            <section class="palette-section">
+                <h2>Movement</h2>
+                @foreach (var template in movementTemplates)
+                {
+                    <button class="palette-block" type="button" draggable="true" @ondragstart="() => BeginTemplateDrag(template.Kind)" @ondblclick="() => AddBlock(template.Kind)">
+                        <span class="connector-top"></span>
+                        @template.Label
+                        <span class="connector-bottom"></span>
+                    </button>
+                }
+            </section>
+
+            <section class="palette-section">
+                <h2>Logic</h2>
+                @foreach (var template in logicTemplates)
+                {
+                    <button class="palette-block" type="button" draggable="true" @ondragstart="() => BeginTemplateDrag(template.Kind)" @ondblclick="() => AddBlock(template.Kind)">
+                        <span class="connector-top"></span>
+                        @template.Label
+                        <span class="connector-bottom"></span>
+                    </button>
+                }
+            </section>
+        </aside>
+
+        <section class="mission-canvas" @ondragover:preventDefault @ondrop="DropTemplateAtEnd">
+            <div class="canvas-grid"></div>
+            <div class="chain">
+                <div class="start-block">
+                    <span class="connector-bottom"></span>
+                    Start of chain
+                </div>
+
+                @if (missionBlocks.Count == 0)
+                {
+                    <div class="drop-target empty" @ondragover:preventDefault @ondrop="DropTemplateAtEnd">Drop first block here</div>
+                }
+
+                @for (var index = 0; index < missionBlocks.Count; index++)
+                {
+                    var block = missionBlocks[index];
+                    var blockIndex = index;
+
+                    <div class="chain-connector"></div>
+                    <article class="mission-block @(runningBlockId == block.Id ? "running" : "")" draggable="true" @ondragstart="() => BeginBlockDrag(block.Id)" @ondrop="() => DropBefore(blockIndex)" @ondragover:preventDefault>
+                        <div class="block-title">
+                            <span class="connector-top"></span>
+                            <strong>@BlockTitle(block)</strong>
+                            <button type="button" @onclick="() => RemoveBlock(block.Id)" disabled="@isRunning">x</button>
+                        </div>
+
+                        @RenderBlockEditor(block)
+
+                        <span class="connector-bottom"></span>
+                    </article>
+                }
+
+                @if (missionBlocks.Count > 0)
+                {
+                    <div class="chain-connector"></div>
+                    <div class="drop-target" @ondragover:preventDefault @ondrop="DropTemplateAtEnd">Drop next block</div>
+                }
+            </div>
+        </section>
+    </main>
+
+    <footer class="forge-status">
+        <div>
+            <span class="status-pill @(isConnected ? "online" : "offline")"></span>
+            @status
+        </div>
+        @if (!string.IsNullOrWhiteSpace(error))
+        {
+            <pre>@error</pre>
+        }
+    </footer>
+</div>
+
+@code {
+    private readonly CancellationTokenSource telemetryCancellation = new();
+    private CancellationTokenSource? missionCancellation;
+    private readonly List<MissionBlock> missionBlocks = new();
+
+    private readonly BlockTemplate[] movementTemplates =
+    [
+        new(BlockKind.Arm, "Arm motors"),
+        new(BlockKind.Takeoff, "Takeoff to ...m"),
+        new(BlockKind.Fly, "Fly ... at ...m/s for ...s"),
+        new(BlockKind.Turn, "Turn ..."),
+        new(BlockKind.ChangeAltitude, "Change altitude to ...m"),
+        new(BlockKind.Land, "Land on ground"),
+        new(BlockKind.Disarm, "Dearm motors"),
+    ];
+
+    private readonly BlockTemplate[] logicTemplates =
+    [
+        new(BlockKind.Wait, "Wait for ... seconds"),
+        new(BlockKind.RepeatNext, "Repeat ... times"),
+        new(BlockKind.IfBatteryBelow, "If battery < ...%"),
+        new(BlockKind.FailsafeAbort, "Failsafe: Abort"),
+    ];
+
+    private string status = "Ready";
+    private string error = "";
+    private string? draggedTemplateKind;
+    private Guid? draggedBlockId;
+    private Guid? runningBlockId;
+    private TelemetrySnapshot telemetry = new();
+    private bool isRunning;
+    private bool isConnected;
+
+    private string AltitudeLabel => telemetry.AltitudeMeters is null ? "--" : $"{telemetry.AltitudeMeters.Value:0.0}m";
+    private string BatteryLabel => telemetry.BatteryPercent is null ? "--" : $"{telemetry.BatteryPercent.Value:0}%";
+    private bool CanRunMission => isConnected && !isRunning && missionBlocks.Count > 0;
+
+    protected override void OnInitialized()
+    {
+        _ = PollTelemetryAsync(telemetryCancellation.Token);
+    }
+
+    private void BeginTemplateDrag(BlockKind kind)
+    {
+        draggedTemplateKind = kind.ToString();
+        draggedBlockId = null;
+    }
+
+    private void BeginBlockDrag(Guid blockId)
+    {
+        draggedBlockId = blockId;
+        draggedTemplateKind = null;
+    }
+
+    private void DropTemplateAtEnd()
+    {
+        if (TryTakeDraggedTemplate(out var kind))
+        {
+            AddBlock(kind);
+        }
+    }
+
+    private void DropBefore(int targetIndex)
+    {
+        if (TryTakeDraggedTemplate(out var kind))
+        {
+            missionBlocks.Insert(targetIndex, CreateBlock(kind));
+            return;
+        }
+
+        if (draggedBlockId is null)
+        {
+            return;
+        }
+
+        var currentIndex = missionBlocks.FindIndex(block => block.Id == draggedBlockId.Value);
+        if (currentIndex < 0 || currentIndex == targetIndex)
+        {
+            draggedBlockId = null;
+            return;
+        }
+
+        var movedBlock = missionBlocks[currentIndex];
+        missionBlocks.RemoveAt(currentIndex);
+
+        if (currentIndex < targetIndex)
+        {
+            targetIndex--;
+        }
+
+        missionBlocks.Insert(Math.Clamp(targetIndex, 0, missionBlocks.Count), movedBlock);
+        draggedBlockId = null;
+    }
+
+    private bool TryTakeDraggedTemplate(out BlockKind kind)
+    {
+        kind = default;
+
+        if (string.IsNullOrWhiteSpace(draggedTemplateKind)
+            || !Enum.TryParse(draggedTemplateKind, out kind))
+        {
+            return false;
+        }
+
+        draggedTemplateKind = null;
+        return true;
+    }
+
+    private void AddBlock(BlockKind kind)
+    {
+        missionBlocks.Add(CreateBlock(kind));
+    }
+
+    private static MissionBlock CreateBlock(BlockKind kind)
+    {
+        return kind switch
+        {
+            BlockKind.Takeoff => new MissionBlock(kind) { Altitude = 5.0 },
+            BlockKind.Fly => new MissionBlock(kind) { Direction = FlightDirection.Forward, Speed = 0.5, Seconds = 2.0 },
+            BlockKind.Turn => new MissionBlock(kind) { Degrees = 90.0, Speed = 35.0 },
+            BlockKind.ChangeAltitude => new MissionBlock(kind) { Altitude = 5.0, Speed = 0.4 },
+            BlockKind.Wait => new MissionBlock(kind) { Seconds = 1.0 },
+            BlockKind.RepeatNext => new MissionBlock(kind) { Count = 2 },
+            BlockKind.IfBatteryBelow => new MissionBlock(kind) { Percent = 25 },
+            _ => new MissionBlock(kind),
+        };
+    }
+
+    private void RemoveBlock(Guid id)
+    {
+        missionBlocks.RemoveAll(block => block.Id == id);
+    }
+
+    private async Task RunMissionAsync()
+    {
+        if (!CanRunMission)
+        {
+            return;
+        }
+
+        error = "";
+        status = "Mission running";
+        isRunning = true;
+        missionCancellation = new CancellationTokenSource();
+        var token = missionCancellation.Token;
+
+        try
+        {
+            for (var index = 0; index < missionBlocks.Count; index++)
+            {
+                token.ThrowIfCancellationRequested();
+                var block = missionBlocks[index];
+
+                if (block.Kind == BlockKind.RepeatNext)
+                {
+                    if (index + 1 >= missionBlocks.Count)
+                    {
+                        continue;
+                    }
+
+                    var nextBlock = missionBlocks[index + 1];
+                    for (var repeat = 0; repeat < Math.Max(1, block.Count); repeat++)
+                    {
+                        token.ThrowIfCancellationRequested();
+                        await ExecuteBlockAsync(nextBlock, token);
+                    }
+
+                    index++;
+                    continue;
+                }
+
+                await ExecuteBlockAsync(block, token);
+            }
+
+            runningBlockId = null;
+            status = "Mission finished";
+        }
+        catch (OperationCanceledException)
+        {
+            runningBlockId = null;
+            status = "Mission aborted";
+        }
+        finally
+        {
+            isRunning = false;
+            missionCancellation?.Dispose();
+            missionCancellation = null;
+            await RefreshTelemetryAsync();
+        }
+    }
+
+    private async Task ExecuteBlockAsync(MissionBlock block, CancellationToken token)
+    {
+        runningBlockId = block.Id;
+        status = $"Running: {BlockTitle(block)}";
+        await InvokeAsync(StateHasChanged);
+
+        switch (block.Kind)
+        {
+            case BlockKind.Arm:
+                await EnsureSuccess("Arm motors", Drone.Arm());
+                break;
+            case BlockKind.Takeoff:
+                await EnsureSuccess("Takeoff", Drone.Takeoff(block.Altitude, armFirst: true));
+                break;
+            case BlockKind.Fly:
+                var (vx, vy, vz) = VelocityFor(block.Direction, block.Speed);
+                await EnsureSuccess("Fly", Drone.SendVelocity(vx, vy, vz, block.Seconds));
+                break;
+            case BlockKind.Turn:
+                await EnsureSuccess("Turn", Drone.Yaw(block.Degrees, block.Speed, isRelative: true));
+                break;
+            case BlockKind.ChangeAltitude:
+                await ChangeAltitudeAsync(block, token);
+                break;
+            case BlockKind.Land:
+                await EnsureSuccess("Land", Drone.Land());
+                break;
+            case BlockKind.Disarm:
+                await EnsureSuccess("Disarm", Drone.Disarm());
+                break;
+            case BlockKind.Wait:
+                await Task.Delay(TimeSpan.FromSeconds(Math.Max(0, block.Seconds)), token);
+                break;
+            case BlockKind.IfBatteryBelow:
+                await RefreshTelemetryAsync();
+                if (telemetry.BatteryPercent is not null && telemetry.BatteryPercent.Value < block.Percent)
+                {
+                    await AbortMissionAsync();
+                    throw new OperationCanceledException(token);
+                }
+                break;
+            case BlockKind.FailsafeAbort:
+                await AbortMissionAsync();
+                throw new OperationCanceledException(token);
+        }
+
+        await RefreshTelemetryAsync();
+    }
+
+    private async Task ChangeAltitudeAsync(MissionBlock block, CancellationToken token)
+    {
+        await RefreshTelemetryAsync();
+        var currentAltitude = telemetry.AltitudeMeters ?? 0.0;
+        var delta = block.Altitude - currentAltitude;
+
+        if (Math.Abs(delta) < 0.2)
+        {
+            return;
+        }
+
+        var speed = Math.Clamp(Math.Abs(block.Speed), 0.1, 1.0);
+        var duration = Math.Clamp(Math.Abs(delta) / speed, 0.2, 20.0);
+        var vz = delta > 0 ? -speed : speed;
+
+        token.ThrowIfCancellationRequested();
+        await EnsureSuccess("Change altitude", Drone.SendVelocity(0, 0, vz, duration));
+    }
+
+    private async Task AbortMissionAsync()
+    {
+        missionCancellation?.Cancel();
+        error = "";
+        status = "Abort requested";
+        runningBlockId = null;
+
+        if (isConnected)
+        {
+            await Drone.SendVelocity(0, 0, 0, 0.1);
+            await Drone.Land();
+        }
+    }
+
+    private async Task EnsureSuccess(string label, Task<DroneApiService.ApiResponse<object>> action)
+    {
+        var result = await action;
+        if (result.Success)
+        {
+            return;
+        }
+
+        throw new InvalidOperationException($"{label} failed: {CombineError(result.ErrorMessage, result.ResponseBody)}");
+    }
+
+    private static (double Vx, double Vy, double Vz) VelocityFor(FlightDirection direction, double speed)
+    {
+        var amount = Math.Clamp(speed, 0.0, 1.0);
+        return direction switch
+        {
+            FlightDirection.Back => (-amount, 0, 0),
+            FlightDirection.Left => (0, -amount, 0),
+            FlightDirection.Right => (0, amount, 0),
+            FlightDirection.Up => (0, 0, -amount),
+            FlightDirection.Down => (0, 0, amount),
+            _ => (amount, 0, 0),
+        };
+    }
+
+    private async Task PollTelemetryAsync(CancellationToken token)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+
+        while (!token.IsCancellationRequested)
+        {
+            try
+            {
+                await RefreshTelemetryAsync();
+                await InvokeAsync(StateHasChanged);
+                await timer.WaitForNextTickAsync(token);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch
+            {
+                await Task.Delay(1000, token);
+            }
+        }
+    }
+
+    private async Task RefreshTelemetryAsync()
+    {
+        try
+        {
+            var json = await Drone.GetStatus();
+            telemetry = TelemetrySnapshot.FromJson(json);
+            isConnected = telemetry.Connected;
+        }
+        catch
+        {
+            isConnected = false;
+        }
+    }
+
+    private static string BlockTitle(MissionBlock block)
+    {
+        return block.Kind switch
+        {
+            BlockKind.Arm => "Arm motors",
+            BlockKind.Takeoff => $"Takeoff to {block.Altitude:0.#}m",
+            BlockKind.Fly => $"Fly {block.Direction} at {block.Speed:0.##}m/s for {block.Seconds:0.#}s",
+            BlockKind.Turn => $"Turn {block.Degrees:0.#} deg",
+            BlockKind.ChangeAltitude => $"Change altitude to {block.Altitude:0.#}m",
+            BlockKind.Land => "Land on ground",
+            BlockKind.Disarm => "Dearm motors",
+            BlockKind.Wait => $"Wait for {block.Seconds:0.#}s",
+            BlockKind.RepeatNext => $"Repeat next {block.Count} times",
+            BlockKind.IfBatteryBelow => $"If battery < {block.Percent:0}%",
+            BlockKind.FailsafeAbort => "Failsafe abort",
+            _ => block.Kind.ToString(),
+        };
+    }
+
+    private RenderFragment RenderBlockEditor(MissionBlock block) => @<div class="block-editor">
+        @switch (block.Kind)
+        {
+            case BlockKind.Takeoff:
+                <label>Altitude <input type="number" @bind="block.Altitude" min="1" max="50" step="0.5" /></label>
+                break;
+            case BlockKind.Fly:
+                <label>Direction <select @bind="block.Direction"><option value="@FlightDirection.Forward">Forward</option><option value="@FlightDirection.Back">Back</option><option value="@FlightDirection.Left">Left</option><option value="@FlightDirection.Right">Right</option><option value="@FlightDirection.Up">Up</option><option value="@FlightDirection.Down">Down</option></select></label>
+                <label>Speed <input type="number" @bind="block.Speed" min="0.05" max="1" step="0.05" /></label>
+                <label>Seconds <input type="number" @bind="block.Seconds" min="0.1" max="30" step="0.1" /></label>
+                break;
+            case BlockKind.Turn:
+                <label>Degrees <input type="number" @bind="block.Degrees" step="5" /></label>
+                <label>Speed <input type="number" @bind="block.Speed" min="1" max="100" step="1" /></label>
+                break;
+            case BlockKind.ChangeAltitude:
+                <label>Altitude <input type="number" @bind="block.Altitude" min="0" max="50" step="0.5" /></label>
+                <label>Speed <input type="number" @bind="block.Speed" min="0.1" max="1" step="0.05" /></label>
+                break;
+            case BlockKind.Wait:
+                <label>Seconds <input type="number" @bind="block.Seconds" min="0" max="120" step="0.5" /></label>
+                break;
+            case BlockKind.RepeatNext:
+                <label>Times <input type="number" @bind="block.Count" min="1" max="20" step="1" /></label>
+                break;
+            case BlockKind.IfBatteryBelow:
+                <label>Percent <input type="number" @bind="block.Percent" min="1" max="100" step="1" /></label>
+                break;
+        }
+    </div>;
+
+    private static string CombineError(string? message, string? body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return message ?? "Unknown error";
+        }
+
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return body;
+        }
+
+        return $"{message}{Environment.NewLine}{body}";
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        telemetryCancellation.Cancel();
+        telemetryCancellation.Dispose();
+        missionCancellation?.Cancel();
+        missionCancellation?.Dispose();
+        return ValueTask.CompletedTask;
+    }
+
+    private sealed record BlockTemplate(BlockKind Kind, string Label);
+
+    private sealed class MissionBlock(BlockKind kind)
+    {
+        public Guid Id { get; } = Guid.NewGuid();
+        public BlockKind Kind { get; } = kind;
+        public double Altitude { get; set; }
+        public double Speed { get; set; }
+        public double Seconds { get; set; }
+        public double Degrees { get; set; }
+        public int Count { get; set; }
+        public int Percent { get; set; }
+        public FlightDirection Direction { get; set; }
+    }
+
+    private enum BlockKind
+    {
+        Arm,
+        Takeoff,
+        Fly,
+        Turn,
+        ChangeAltitude,
+        Land,
+        Disarm,
+        Wait,
+        RepeatNext,
+        IfBatteryBelow,
+        FailsafeAbort,
+    }
+
+    private enum FlightDirection
+    {
+        Forward,
+        Back,
+        Left,
+        Right,
+        Up,
+        Down,
+    }
+
+    private sealed class TelemetrySnapshot
+    {
+        public bool Connected { get; private init; }
+        public double? AltitudeMeters { get; private init; }
+        public int? BatteryPercent { get; private init; }
+
+        public static TelemetrySnapshot FromJson(string json)
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(json);
+            var root = document.RootElement;
+
+            return new TelemetrySnapshot
+            {
+                Connected = TryGetBool(root, "connected") ?? false,
+                AltitudeMeters = TryGetDouble(root, "altitude_relative_m")
+                    ?? TryGetDouble(root, "relative_altitude_m")
+                    ?? TryGetDouble(root, "altitude_local_m"),
+                BatteryPercent = TryGetInt(root, "battery_remaining_percent"),
+            };
+        }
+
+        private static bool? TryGetBool(System.Text.Json.JsonElement element, string propertyName)
+        {
+            return element.TryGetProperty(propertyName, out var value) && value.ValueKind is System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False
+                ? value.GetBoolean()
+                : null;
+        }
+
+        private static double? TryGetDouble(System.Text.Json.JsonElement element, string propertyName)
+        {
+            return element.TryGetProperty(propertyName, out var value) && value.TryGetDouble(out var result)
+                ? result
+                : null;
+        }
+
+        private static int? TryGetInt(System.Text.Json.JsonElement element, string propertyName)
+        {
+            return element.TryGetProperty(propertyName, out var value) && value.TryGetInt32(out var result)
+                ? result
+                : null;
+        }
+    }
+}
+
+<style>
+    .forge-page {
+        min-height: calc(100vh - 2rem);
+        margin: -1.1rem -1.5rem 0;
+        background: #d3d3d8;
+        color: #f4f6fb;
+        display: grid;
+        grid-template-rows: 62px minmax(560px, 1fr) auto;
+    }
+
+    .forge-toolbar {
+        display: grid;
+        grid-template-columns: 260px 1fr 340px;
+        align-items: center;
+        gap: 18px;
+        background: #202a42;
+        border-bottom: 1px solid #303b58;
+        padding: 0 16px;
+    }
+
+    .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 1.55rem;
+        font-weight: 500;
+    }
+
+    .brand-mark {
+        width: 28px;
+        height: 28px;
+        position: relative;
+    }
+
+    .brand-mark span {
+        position: absolute;
+        width: 12px;
+        height: 12px;
+        border: 3px solid #ffffff;
+        border-radius: 999px;
+    }
+
+    .brand-mark span:nth-child(1) {
+        left: 0;
+        top: 0;
+    }
+
+    .brand-mark span:nth-child(2) {
+        right: 0;
+        top: 0;
+    }
+
+    .brand-mark span:nth-child(3) {
+        left: 0;
+        bottom: 0;
+    }
+
+    .brand-mark span:nth-child(4) {
+        right: 0;
+        bottom: 0;
+    }
+
+    .telemetry {
+        display: flex;
+        justify-content: center;
+        gap: 60px;
+        color: #ffffff;
+        font-size: 1.25rem;
+        font-weight: 800;
+    }
+
+    .mission-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 28px;
+    }
+
+    .run-button,
+    .abort-button {
+        min-width: 138px;
+        height: 30px;
+        border: 0;
+        border-radius: 3px;
+        color: #ffffff;
+        font-size: 0.78rem;
+        font-weight: 800;
+    }
+
+    .run-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        background: #5c7893;
+    }
+
+    .abort-button {
+        background: #303a59;
+    }
+
+    .play-icon {
+        width: 0;
+        height: 0;
+        border-top: 8px solid transparent;
+        border-bottom: 8px solid transparent;
+        border-left: 12px solid #ffffff;
+    }
+
+    .forge-workbench {
+        display: grid;
+        grid-template-columns: 226px 1fr;
+        min-height: 0;
+    }
+
+    .block-palette {
+        background: #1b2436;
+        padding: 18px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .palette-section {
+        background: #24304a;
+        border-radius: 10px;
+        overflow: hidden;
+        padding: 0 12px 14px;
+    }
+
+    .palette-section h2 {
+        margin: 0 -12px 16px;
+        padding: 8px 12px;
+        border-bottom: 1px solid #687289;
+        color: #ffffff;
+        font-size: 0.95rem;
+        font-weight: 500;
+    }
+
+    .palette-block,
+    .mission-block,
+    .start-block {
+        position: relative;
+        border: 0;
+        border-radius: 3px;
+        background: #415274;
+        color: #ffffff;
+        box-shadow: none;
+    }
+
+    .palette-block {
+        width: 100%;
+        min-height: 24px;
+        margin-bottom: 16px;
+        padding: 4px 10px;
+        cursor: grab;
+        font-size: 0.82rem;
+    }
+
+    .connector-top,
+    .connector-bottom {
+        position: absolute;
+        left: 20px;
+        width: 14px;
+        height: 14px;
+        background: #33415e;
+        border-radius: 0 0 999px 999px;
+    }
+
+    .connector-top {
+        top: -8px;
+    }
+
+    .connector-bottom {
+        bottom: -8px;
+    }
+
+    .mission-canvas {
+        position: relative;
+        overflow: auto;
+        background: #d4d4d9;
+    }
+
+    .canvas-grid {
+        position: absolute;
+        inset: 0;
+        background-image: linear-gradient(rgba(255,255,255,0.22) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.22) 1px, transparent 1px);
+        background-size: 32px 32px;
+        opacity: 0.25;
+        pointer-events: none;
+    }
+
+    .chain {
+        position: relative;
+        z-index: 1;
+        width: min(520px, 90%);
+        min-height: 520px;
+        margin: 108px auto 80px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .start-block {
+        width: 166px;
+        min-height: 24px;
+        display: grid;
+        place-items: center;
+        font-size: 0.82rem;
+    }
+
+    .chain-connector {
+        width: 4px;
+        height: 28px;
+        background: #33415e;
+    }
+
+    .drop-target {
+        min-width: 190px;
+        min-height: 32px;
+        border: 2px dashed #6a748a;
+        border-radius: 5px;
+        color: #44506a;
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+        background: rgba(255,255,255,0.18);
+    }
+
+    .drop-target.empty {
+        margin-top: 34px;
+    }
+
+    .mission-block {
+        width: 320px;
+        padding: 10px 12px 12px;
+        cursor: grab;
+    }
+
+    .mission-block.running {
+        outline: 3px solid #5c7893;
+    }
+
+    .block-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        min-height: 24px;
+        margin-bottom: 8px;
+    }
+
+    .block-title button {
+        width: 24px;
+        height: 24px;
+        border: 0;
+        border-radius: 3px;
+        background: #303a59;
+        color: #ffffff;
+        font-weight: 800;
+    }
+
+    .block-editor {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+        gap: 8px;
+    }
+
+    .block-editor label {
+        color: #dfe6f5;
+        font-size: 0.72rem;
+        font-weight: 800;
+    }
+
+    .block-editor input,
+    .block-editor select {
+        width: 100%;
+        min-height: 30px;
+        border: 1px solid #6f7b95;
+        border-radius: 3px;
+        background: #27334d;
+        color: #ffffff;
+        padding: 4px 6px;
+        font-size: 0.8rem;
+    }
+
+    .forge-status {
+        min-height: 50px;
+        background: #1b2436;
+        border-top: 1px solid #303b58;
+        padding: 8px 16px;
+        color: #dce5f4;
+    }
+
+    .forge-status div {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .forge-status pre {
+        margin: 8px 0 0;
+        color: #ffb8bf;
+        white-space: pre-wrap;
+    }
+
+    .status-pill {
+        width: 9px;
+        height: 9px;
+        border-radius: 999px;
+        background: #db5c5c;
+    }
+
+    .status-pill.online {
+        background: #4cc27a;
+    }
+
+    button:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+    }
+
+    @@media (max-width: 900px) {
+        .forge-toolbar {
+            grid-template-columns: 1fr;
+            height: auto;
+            padding: 12px 16px;
+        }
+
+        .telemetry,
+        .mission-actions {
+            justify-content: flex-start;
+        }
+
+        .forge-workbench {
+            grid-template-columns: 1fr;
+        }
+
+        .block-palette {
+            display: grid;
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
