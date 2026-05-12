@@ -10,6 +10,7 @@ from models.models import (
     ModeRequest,
     RawCommandRequest,
     TakeoffRequest,
+    ThrottleRequest,
     VelocityBodyRequest,
     YawRequest,
 )
@@ -26,13 +27,13 @@ def connect(request: ConnectRequest) -> dict:
         drone_controller.connect(
             connection_string=request.connection_string,
             baud_rate=request.baud_rate,
-            heartbeat_timeout_seconds=request.heartbeat_timeout_seconds
+            heartbeat_timeout_seconds=request.heartbeat_timeout_seconds,
         )
 
         return {
             "success": True,
             "message": "Verbunden",
-            "connection": drone_controller.get_connection_info()
+            "connection": drone_controller.get_connection_info(),
         }
     except Exception as exception:
         raise HTTPException(status_code=500, detail=str(exception))
@@ -42,10 +43,7 @@ def connect(request: ConnectRequest) -> dict:
 def disconnect() -> dict:
     try:
         drone_controller.disconnect()
-        return {
-            "success": True,
-            "message": "Verbindung getrennt"
-        }
+        return {"success": True, "message": "Verbindung getrennt"}
     except Exception as exception:
         raise HTTPException(status_code=500, detail=str(exception))
 
@@ -85,8 +83,31 @@ def disarm() -> dict:
 @app.post("/takeoff")
 def takeoff(request: TakeoffRequest) -> dict:
     try:
-        drone_controller.takeoff(request.altitude_meters)
-        return {"success": True, "altitude_meters": request.altitude_meters}
+        drone_controller.takeoff(
+            altitude_meters=request.altitude_meters,
+            arm_first=request.arm_first,
+        )
+        return {
+            "success": True,
+            "altitude_meters": request.altitude_meters,
+            "mode": "GUIDED",
+        }
+    except Exception as exception:
+        raise HTTPException(status_code=500, detail=str(exception))
+
+
+@app.post("/throttle")
+def throttle(request: ThrottleRequest) -> dict:
+    try:
+        drone_controller.send_throttle(
+            throttle_pwm=request.throttle_pwm,
+            duration_seconds=request.duration_seconds,
+        )
+        return {
+            "success": True,
+            "throttle_pwm": request.throttle_pwm,
+            "duration_seconds": request.duration_seconds,
+        }
     except Exception as exception:
         raise HTTPException(status_code=500, detail=str(exception))
 
@@ -116,7 +137,7 @@ def send_velocity_body(request: VelocityBodyRequest) -> dict:
             request.vx,
             request.vy,
             request.vz,
-            request.duration_seconds
+            request.duration_seconds,
         )
         return {"success": True}
     except Exception as exception:
@@ -138,7 +159,7 @@ def set_yaw(request: YawRequest) -> dict:
         drone_controller.set_yaw(
             request.yaw_degrees,
             request.yaw_speed_deg_per_sec,
-            request.is_relative
+            request.is_relative,
         )
         return {"success": True}
     except Exception as exception:
@@ -156,7 +177,7 @@ def send_raw_command(request: RawCommandRequest) -> dict:
             param4=request.param4,
             param5=request.param5,
             param6=request.param6,
-            param7=request.param7
+            param7=request.param7,
         )
         return {"success": True}
     except Exception as exception:

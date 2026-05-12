@@ -25,13 +25,19 @@ class ModeRequest(BaseModel):
 
 
 class TakeoffRequest(BaseModel):
-    altitude_meters: float = Field(..., gt=0.0)
+    altitude_meters: float = Field(default=5.0, gt=0.0, le=50.0)
+    arm_first: bool = True
+
+
+class ThrottleRequest(BaseModel):
+    throttle_pwm: int = Field(..., ge=1000, le=2000)
+    duration_seconds: float = Field(default=0.0, ge=0.0, le=30.0)
 
 
 class VelocityBodyRequest(BaseModel):
-    vx: float
-    vy: float
-    vz: float
+    vx: float = Field(default=0.0, ge=-1.0, le=1.0)
+    vy: float = Field(default=0.0, ge=-1.0, le=1.0)
+    vz: float = Field(default=0.0, ge=-1.0, le=1.0)
     duration_seconds: float = Field(default=0.0, ge=0.0)
 
 
