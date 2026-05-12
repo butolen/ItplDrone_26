@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.drone_controller import DroneController
+from DroneApi.app.drone_controller import DroneController
 
 
 class CommandExecutor:

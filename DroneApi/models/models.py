@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 class FlightMode(str, Enum):
     STABILIZE = "STABILIZE"
     GUIDED = "GUIDED"
+    GUIDED_NOGPS = "GUIDED_NOGPS"
     LAND = "LAND"
     RTL = "RTL"
     LOITER = "LOITER"
@@ -32,7 +33,30 @@ class TakeoffRequest(BaseModel):
 
 class ThrottleRequest(BaseModel):
     throttle_pwm: int = Field(..., ge=1000, le=2000)
+    duration_seconds: float = Field(default=2.0, ge=0.0, le=30.0)
+
+
+class SimRcRequest(BaseModel):
+    forward: float | None = Field(default=None, ge=-1.0, le=1.0)
+    right: float | None = Field(default=None, ge=-1.0, le=1.0)
+    up: float | None = Field(default=None, ge=-1.0, le=1.0)
+    yaw: float | None = Field(default=None, ge=-1.0, le=1.0)
+    roll_pwm: int | None = Field(default=None, ge=1000, le=2000)
+    pitch_pwm: int | None = Field(default=None, ge=1000, le=2000)
+    throttle_pwm: int | None = Field(default=None, ge=1000, le=2000)
+    yaw_pwm: int | None = Field(default=None, ge=1000, le=2000)
+    aux1_pwm: int | None = Field(default=None, ge=1000, le=2000)
+    aux2_pwm: int | None = Field(default=None, ge=1000, le=2000)
+    aux3_pwm: int | None = Field(default=None, ge=1000, le=2000)
+    aux4_pwm: int | None = Field(default=None, ge=1000, le=2000)
     duration_seconds: float = Field(default=0.0, ge=0.0, le=30.0)
+    release_after: bool = False
+
+
+class MotorTestRequest(BaseModel):
+    motor: int = Field(..., ge=1, le=8)
+    throttle_percent: float = Field(default=10.0, ge=0.0, le=100.0)
+    duration_seconds: float = Field(default=2.0, gt=0.0, le=30.0)
 
 
 class VelocityBodyRequest(BaseModel):
