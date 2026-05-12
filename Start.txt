@@ -16,4 +16,10 @@ cd ~/ardupilot/ArduCopter
 ../Tools/autotest/sim_vehicle.py -v ArduCopter -f quad --console --wipe
 output add 192.168.240.1:14551
 
+cd DroneApi
+python main.py
+
+cd ITPDroneGUI
+dotnet run --build
+
 Befehle in WebGui sende
