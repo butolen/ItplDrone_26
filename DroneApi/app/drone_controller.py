@@ -20,6 +20,7 @@ class DroneController:
         self._connected = False
         self._connection_string: Optional[str] = None
         self._baud_rate: Optional[int] = None
+        self._last_relative_altitude_m: Optional[float] = None
 
     @property
     def master(self) -> mavutil.mavfile:
@@ -69,6 +70,8 @@ class DroneController:
             self._last_heartbeat_time = time.time()
             self._connection_string = connection_string
             self._baud_rate = baud_rate
+
+        self._request_telemetry_streams()
 
     def disconnect(self) -> None:
         with self._lock:
@@ -138,6 +141,7 @@ class DroneController:
     ) -> None:
         self.release_rc_override()
         self.set_mode("GUIDED")
+        self._drain_mavlink_messages(0.2)
 
         if arm_first:
             self.arm()
@@ -159,13 +163,20 @@ class DroneController:
 
         end = time.time() + timeout
         while time.time() < end:
-            altitude = self._relative_altitude_m()
-            if altitude is not None and altitude >= altitude_meters * 0.9:
+            altitude = self._relative_altitude_m(blocking_timeout=0.5, allow_cached=False)
+            if altitude is not None:
+                print(f"[TAKEOFF] Altitude: {altitude:.2f} / {altitude_meters:.2f} m")
+
+            if altitude is not None and altitude >= altitude_meters - 0.25:
                 self.send_velocity_body(0.0, 0.0, 0.0)
                 return
-            time.sleep(0.2)
 
-        raise RuntimeError(f"Takeoff timeout before reaching {altitude_meters} m")
+        last_altitude = (
+            f" Last altitude: {self._last_relative_altitude_m:.2f} m."
+            if self._last_relative_altitude_m is not None
+            else " No altitude telemetry received."
+        )
+        raise RuntimeError(f"Takeoff timeout before reaching {altitude_meters} m.{last_altitude}")
 
     def land(self) -> None:
         self.set_mode("LAND")
@@ -360,6 +371,8 @@ class DroneController:
         attitude = self.master.recv_match(type="ATTITUDE", blocking=False)
         altitude = self.master.recv_match(type="ALTITUDE", blocking=False)
         global_position = self.master.recv_match(type="GLOBAL_POSITION_INT", blocking=False)
+        local_position = self.master.recv_match(type="LOCAL_POSITION_NED", blocking=False)
+        vfr_hud = self.master.recv_match(type="VFR_HUD", blocking=False)
         sys_status = self.master.recv_match(type="SYS_STATUS", blocking=False)
         battery_status = self.master.recv_match(type="BATTERY_STATUS", blocking=False)
 
@@ -385,10 +398,17 @@ class DroneController:
 
         if altitude is not None:
             result["altitude_local_m"] = float(altitude.altitude_local)
-            result["altitude_relative_m"] = float(altitude.altitude_relative)
+            result["altitude_relative_m"] = self._remember_altitude(float(altitude.altitude_relative))
 
         if global_position is not None:
-            result["relative_altitude_m"] = float(global_position.relative_alt) / 1000.0
+            result["relative_altitude_m"] = self._remember_altitude(float(global_position.relative_alt) / 1000.0)
+
+        if local_position is not None:
+            result["local_position_z_m"] = float(local_position.z)
+            result["relative_altitude_m"] = self._remember_altitude(max(0.0, -float(local_position.z)))
+
+        if vfr_hud is not None:
+            result["vfr_altitude_m"] = float(vfr_hud.alt)
 
         if sys_status is not None:
             if int(sys_status.battery_remaining) >= 0:
@@ -403,17 +423,98 @@ class DroneController:
 
         return result
 
-    def _relative_altitude_m(self) -> float | None:
-        with self._lock:
-            altitude = self.master.recv_match(type="ALTITUDE", blocking=False)
-            if altitude is not None:
-                return float(altitude.altitude_relative)
+    def _relative_altitude_m(
+        self,
+        blocking_timeout: float = 0.5,
+        allow_cached: bool = True,
+    ) -> float | None:
+        deadline = time.time() + blocking_timeout
+        message_types = [
+            "ALTITUDE",
+            "GLOBAL_POSITION_INT",
+            "LOCAL_POSITION_NED",
+            "VFR_HUD",
+        ]
 
-            global_position = self.master.recv_match(type="GLOBAL_POSITION_INT", blocking=False)
-            if global_position is not None:
-                return float(global_position.relative_alt) / 1000.0
+        while time.time() <= deadline:
+            remaining = max(0.05, deadline - time.time())
+
+            with self._lock:
+                message = self.master.recv_match(
+                    type=message_types,
+                    blocking=True,
+                    timeout=remaining,
+                )
+
+            altitude = self._altitude_from_message(message)
+            if altitude is not None:
+                return self._remember_altitude(altitude)
+
+        if allow_cached:
+            return self._last_relative_altitude_m
 
         return None
+
+    def _request_telemetry_streams(self) -> None:
+        message_ids = [
+            mavutil.mavlink.MAVLINK_MSG_ID_GLOBAL_POSITION_INT,
+            mavutil.mavlink.MAVLINK_MSG_ID_LOCAL_POSITION_NED,
+            mavutil.mavlink.MAVLINK_MSG_ID_ALTITUDE,
+            mavutil.mavlink.MAVLINK_MSG_ID_VFR_HUD,
+            mavutil.mavlink.MAVLINK_MSG_ID_SYS_STATUS,
+            mavutil.mavlink.MAVLINK_MSG_ID_BATTERY_STATUS,
+        ]
+
+        with self._lock:
+            for message_id in message_ids:
+                self.master.mav.command_long_send(
+                    self.master.target_system,
+                    self.master.target_component,
+                    mavutil.mavlink.MAV_CMD_SET_MESSAGE_INTERVAL,
+                    0,
+                    message_id,
+                    200000,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                )
+
+            self.master.mav.request_data_stream_send(
+                self.master.target_system,
+                self.master.target_component,
+                mavutil.mavlink.MAV_DATA_STREAM_ALL,
+                4,
+                1,
+            )
+
+    def _drain_mavlink_messages(self, duration_seconds: float) -> None:
+        end_time = time.time() + duration_seconds
+        while time.time() < end_time:
+            with self._lock:
+                message = self.master.recv_match(blocking=False)
+            altitude = self._altitude_from_message(message)
+            if altitude is not None:
+                self._remember_altitude(altitude)
+
+    def _altitude_from_message(self, message: Any) -> float | None:
+        if message is None:
+            return None
+
+        message_type = message.get_type()
+        if message_type == "ALTITUDE":
+            return float(message.altitude_relative)
+        if message_type == "GLOBAL_POSITION_INT":
+            return float(message.relative_alt) / 1000.0
+        if message_type == "LOCAL_POSITION_NED":
+            return max(0.0, -float(message.z))
+
+        return None
+
+    def _remember_altitude(self, altitude_meters: float) -> float:
+        self._last_relative_altitude_m = altitude_meters
+        return altitude_meters
 
     def _recv_status(self):
         with self._lock:

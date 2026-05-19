@@ -33,11 +33,9 @@
                 <h2>Movement</h2>
                 @foreach (var template in movementTemplates)
                 {
-                    <button class="palette-block" type="button" draggable="true" @ondragstart="() => BeginTemplateDrag(template.Kind)" @ondblclick="() => AddBlock(template.Kind)">
-                        <span class="connector-top"></span>
+                    <div class="palette-block puzzle-block palette-piece" role="button" tabindex="0" draggable="true" @ondragstart="() => BeginTemplateDrag(template.Kind)">
                         @template.Label
-                        <span class="connector-bottom"></span>
-                    </button>
+                    </div>
                 }
             </section>
 
@@ -45,11 +43,9 @@
                 <h2>Logic</h2>
                 @foreach (var template in logicTemplates)
                 {
-                    <button class="palette-block" type="button" draggable="true" @ondragstart="() => BeginTemplateDrag(template.Kind)" @ondblclick="() => AddBlock(template.Kind)">
-                        <span class="connector-top"></span>
+                    <div class="palette-block puzzle-block palette-piece" role="button" tabindex="0" draggable="true" @ondragstart="() => BeginTemplateDrag(template.Kind)">
                         @template.Label
-                        <span class="connector-bottom"></span>
-                    </button>
+                    </div>
                 }
             </section>
         </aside>
@@ -57,14 +53,17 @@
         <section class="mission-canvas" @ondragover:preventDefault @ondrop="DropTemplateAtEnd">
             <div class="canvas-grid"></div>
             <div class="chain">
-                <div class="start-block">
-                    <span class="connector-bottom"></span>
+                <div class="start-block puzzle-block">
                     Start of chain
                 </div>
 
                 @if (missionBlocks.Count == 0)
                 {
-                    <div class="drop-target empty" @ondragover:preventDefault @ondrop="DropTemplateAtEnd">Drop first block here</div>
+                    <div class="insert-slot empty" @ondragover:preventDefault @ondrop="DropTemplateAtEnd">Drop first block here</div>
+                }
+                else
+                {
+                    <div class="insert-slot" @ondragover:preventDefault @ondrop="() => DropAt(0)">Drop here</div>
                 }
 
                 @for (var index = 0; index < missionBlocks.Count; index++)
@@ -72,24 +71,16 @@
                     var block = missionBlocks[index];
                     var blockIndex = index;
 
-                    <div class="chain-connector"></div>
-                    <article class="mission-block @(runningBlockId == block.Id ? "running" : "")" draggable="true" @ondragstart="() => BeginBlockDrag(block.Id)" @ondrop="() => DropBefore(blockIndex)" @ondragover:preventDefault>
+                    <article class="mission-block puzzle-block @(runningBlockId == block.Id ? "running" : "")" draggable="true" @ondragstart="() => BeginBlockDrag(block.Id)">
                         <div class="block-title">
-                            <span class="connector-top"></span>
                             <strong>@BlockTitle(block)</strong>
                             <button type="button" @onclick="() => RemoveBlock(block.Id)" disabled="@isRunning">x</button>
                         </div>
 
                         @RenderBlockEditor(block)
-
-                        <span class="connector-bottom"></span>
                     </article>
-                }
 
-                @if (missionBlocks.Count > 0)
-                {
-                    <div class="chain-connector"></div>
-                    <div class="drop-target" @ondragover:preventDefault @ondrop="DropTemplateAtEnd">Drop next block</div>
+                    <div class="insert-slot" @ondragover:preventDefault @ondrop="() => DropAt(blockIndex + 1)">Drop here</div>
                 }
             </div>
         </section>
@@ -163,17 +154,14 @@
 
     private void DropTemplateAtEnd()
     {
-        if (TryTakeDraggedTemplate(out var kind))
-        {
-            AddBlock(kind);
-        }
+        DropAt(missionBlocks.Count);
     }
 
-    private void DropBefore(int targetIndex)
+    private void DropAt(int targetIndex)
     {
         if (TryTakeDraggedTemplate(out var kind))
         {
-            missionBlocks.Insert(targetIndex, CreateBlock(kind));
+            missionBlocks.Insert(Math.Clamp(targetIndex, 0, missionBlocks.Count), CreateBlock(kind));
             return;
         }
 
@@ -213,11 +201,6 @@
 
         draggedTemplateKind = null;
         return true;
-    }
-
-    private void AddBlock(BlockKind kind)
-    {
-        missionBlocks.Add(CreateBlock(kind));
     }
 
     private static MissionBlock CreateBlock(BlockKind kind)
@@ -738,42 +721,52 @@
         font-weight: 500;
     }
 
-    .palette-block,
-    .mission-block,
-    .start-block {
+    .puzzle-block {
+        --block-color: #415274;
         position: relative;
         border: 0;
-        border-radius: 3px;
-        background: #415274;
+        border-radius: 4px;
+        background: var(--block-color);
         color: #ffffff;
-        box-shadow: none;
+        box-shadow: 0 1px 0 rgba(0, 0, 0, 0.22);
+        isolation: isolate;
+    }
+
+    .puzzle-block::before {
+        content: "";
+        position: absolute;
+        top: -1px;
+        left: 24px;
+        width: 34px;
+        height: 14px;
+        border-radius: 0 0 16px 16px;
+        background: var(--socket-color, #d4d4d9);
+        box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+        z-index: 2;
+    }
+
+    .puzzle-block::after {
+        content: "";
+        position: absolute;
+        bottom: -13px;
+        left: 24px;
+        width: 34px;
+        height: 15px;
+        border-radius: 0 0 16px 16px;
+        background: var(--block-color);
+        z-index: 3;
     }
 
     .palette-block {
+        --socket-color: #24304a;
         width: 100%;
         min-height: 24px;
-        margin-bottom: 16px;
+        margin-bottom: 18px;
         padding: 4px 10px;
         cursor: grab;
         font-size: 0.82rem;
-    }
-
-    .connector-top,
-    .connector-bottom {
-        position: absolute;
-        left: 20px;
-        width: 14px;
-        height: 14px;
-        background: #33415e;
-        border-radius: 0 0 999px 999px;
-    }
-
-    .connector-top {
-        top: -8px;
-    }
-
-    .connector-bottom {
-        bottom: -8px;
+        text-align: center;
+        user-select: none;
     }
 
     .mission-canvas {
@@ -810,32 +803,42 @@
         font-size: 0.82rem;
     }
 
-    .chain-connector {
-        width: 4px;
-        height: 28px;
-        background: #33415e;
+    .start-block::before {
+        display: none;
     }
 
-    .drop-target {
-        min-width: 190px;
-        min-height: 32px;
-        border: 2px dashed #6a748a;
-        border-radius: 5px;
-        color: #44506a;
+    .insert-slot {
+        width: 320px;
+        min-height: 15px;
+        margin: 0;
+        color: transparent;
         display: grid;
         place-items: center;
+        border-radius: 4px;
+        transition: background 120ms ease, min-height 120ms ease;
+    }
+
+    .insert-slot.empty {
+        min-height: 54px;
+        margin-top: 20px;
+        border: 2px dashed #6a748a;
+        color: #44506a;
         font-weight: 800;
         background: rgba(255,255,255,0.18);
     }
 
-    .drop-target.empty {
-        margin-top: 34px;
+    .insert-slot:not(.empty):hover {
+        min-height: 24px;
+        background: rgba(65, 82, 116, 0.16);
     }
 
     .mission-block {
+        --socket-color: #d4d4d9;
         width: 320px;
-        padding: 10px 12px 12px;
+        min-height: 66px;
+        padding: 10px 12px 16px;
         cursor: grab;
+        user-select: none;
     }
 
     .mission-block.running {
