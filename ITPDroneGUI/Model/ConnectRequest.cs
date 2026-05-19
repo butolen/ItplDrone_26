@@ -3,10 +3,10 @@ using System.Text.Json.Serialization;
 public class ConnectRequest
 {
     [JsonPropertyName("connection_string")]
-    public string ConnectionString { get; set; } = "tcp:127.0.0.1:5762";
+    public string ConnectionString { get; set; } = "tcp:127.0.0.1:5763";
 
     [JsonPropertyName("baud_rate")]
-    public int BaudRate { get; set; } = 57600;
+    public int BaudRate { get; set; } = 57630;
 
     [JsonPropertyName("heartbeat_timeout_seconds")]
     public double HeartbeatTimeoutSeconds { get; set; } = 10.0;

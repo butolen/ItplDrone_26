@@ -24,7 +24,7 @@
             </div>
 
             <label for="connectionString">MAVLink TCP endpoint</label>
-            <input id="connectionString" @bind="connectionString" @bind:event="oninput" placeholder="tcp:127.0.0.1:5762" />
+            <input id="connectionString" @bind="connectionString" @bind:event="oninput" placeholder="tcp:127.0.0.1:5763" />
 
             <div class="inline-fields">
                 <label>
@@ -181,8 +181,8 @@
     private bool isBusy;
     private bool isConnected;
 
-    private string connectionString = "tcp:127.0.0.1:5762";
-    private int baudRate = 57600;
+    private string connectionString = "tcp:127.0.0.1:5763";
+    private int baudRate = 57630;
     private double heartbeat = 10.0;
 
     private string selectedMode = "GUIDED";
@@ -234,7 +234,7 @@
         if (!connectionString.Trim().StartsWith("tcp:", StringComparison.OrdinalIgnoreCase))
         {
             status = "Connect blocked";
-            error = "Use a MAVLink TCP endpoint such as tcp:127.0.0.1:5762.";
+            error = "Use a MAVLink TCP endpoint such as tcp:127.0.0.1:5763.";
             response = "";
             isConnected = false;
             return Task.CompletedTask;

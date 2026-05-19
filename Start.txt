@@ -13,8 +13,11 @@ Testen:
 WebGUI im Browser öffnen
 
 cd ~/ardupilot/ArduCopter 
-../Tools/autotest/sim_vehicle.py -v ArduCopter -f quad --console --wipe
+../Tools/autotest/sim_vehicle.py -v ArduCopter -f quad --console --wipe --location=MeinStandort
+                                                                                   
 output add 192.168.240.1:14551
+//Handy
+output add 192.168.43.1:14550
 
 cd DroneApi
 python main.py
@@ -22,4 +25,18 @@ python main.py
 cd ITPDroneGUI
 dotnet run --build
 
+set home 48.411008, 15.593409
+
 Befehle in WebGui sende
+
+handy:
+
+netsh interface portproxy add v4tov4 listenport=5760 listenaddress=0.0.0.0 connectport=5760 connectaddress=192.168.252.239
+netsh advfirewall firewall add rule name="ArduPilot5760" dir=in action=allow protocol=TCP localport=5760
+netsh interface portproxy delete v4tov4 listenport=5760 listenaddress=0.0.0.0
+netsh interface portproxy add v4tov4 listenport=5760 listenaddress=0.0.0.0 connectport=5760 connectaddress=192.168.252.239
+netsh advfirewall firewall add rule name="WSL5760" dir=in action=allow protocol=TCP localport=5760
+netsh advfirewall firewall add rule name="WSL5762" dir=in action=allow protocol=TCP localport=5762
+
+
+

@@ -11,6 +11,10 @@ builder.Services.AddScoped(sp =>
     new HttpClient { BaseAddress = new Uri("http://127.0.0.1:8000") }
 );
 
+builder.Services.AddHttpsRedirection(options =>
+{
+    options.HttpsPort = 5001; 
+});
 
 
 var app = builder.Build();
@@ -21,7 +25,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+
 app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
