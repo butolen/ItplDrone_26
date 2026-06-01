@@ -1,0 +1,49 @@
+<changelist name="Uncommitted_changes_before_rebase_[Changes]1" date="1780296003622" recycled="false" toDelete="true">
+  <option name="PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_rebase_[Changes]1/shelved.patch" />
+  <option name="DESCRIPTION" value="Uncommitted changes before rebase [Changes]" />
+  <binary>
+    <option name="BEFORE_PATH" value="ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.pdb" />
+    <option name="AFTER_PATH" value="ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.pdb" />
+    <option name="SHELVED_PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_rebase_[Changes]1/ITPDroneGUI.pdb" />
+  </binary>
+  <binary>
+    <option name="BEFORE_PATH" value="ITPDroneGUI/obj/Debug/net9.0/refint/ITPDroneGUI.dll" />
+    <option name="AFTER_PATH" value="ITPDroneGUI/obj/Debug/net9.0/refint/ITPDroneGUI.dll" />
+    <option name="SHELVED_PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_rebase_[Changes]1/ITPDroneGUI.dll" />
+  </binary>
+  <binary>
+    <option name="BEFORE_PATH" value="ITPDroneGUI/obj/Debug/net9.0/apphost.exe" />
+    <option name="AFTER_PATH" value="ITPDroneGUI/obj/Debug/net9.0/apphost.exe" />
+    <option name="SHELVED_PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_rebase_[Changes]1/apphost.exe" />
+  </binary>
+  <binary>
+    <option name="BEFORE_PATH" value="ITPDroneGUI/bin/Debug/net9.0/ITPDroneGUI.exe" />
+    <option name="AFTER_PATH" value="ITPDroneGUI/bin/Debug/net9.0/ITPDroneGUI.exe" />
+    <option name="SHELVED_PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_rebase_[Changes]1/ITPDroneGUI.exe" />
+  </binary>
+  <binary>
+    <option name="BEFORE_PATH" value="ITPDroneGUI/bin/Debug/net9.0/ITPDroneGUI.dll" />
+    <option name="AFTER_PATH" value="ITPDroneGUI/bin/Debug/net9.0/ITPDroneGUI.dll" />
+    <option name="SHELVED_PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_rebase_[Changes]1/ITPDroneGUI1.dll" />
+  </binary>
+  <binary>
+    <option name="BEFORE_PATH" value="ITPDroneGUI/obj/Debug/net9.0/ref/ITPDroneGUI.dll" />
+    <option name="AFTER_PATH" value="ITPDroneGUI/obj/Debug/net9.0/ref/ITPDroneGUI.dll" />
+    <option name="SHELVED_PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_rebase_[Changes]1/ITPDroneGUI2.dll" />
+  </binary>
+  <binary>
+    <option name="BEFORE_PATH" value="ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.dll" />
+    <option name="AFTER_PATH" value="ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.dll" />
+    <option name="SHELVED_PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_rebase_[Changes]1/ITPDroneGUI3.dll" />
+  </binary>
+  <binary>
+    <option name="BEFORE_PATH" value="ITPDroneGUI/bin/Debug/net9.0/ITPDroneGUI.pdb" />
+    <option name="AFTER_PATH" value="ITPDroneGUI/bin/Debug/net9.0/ITPDroneGUI.pdb" />
+    <option name="SHELVED_PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_rebase_[Changes]1/ITPDroneGUI1.pdb" />
+  </binary>
+  <binary>
+    <option name="BEFORE_PATH" value="ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.assets.cache" />
+    <option name="AFTER_PATH" value="ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.assets.cache" />
+    <option name="SHELVED_PATH" value="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_rebase_[Changes]1/ITPDroneGUI.assets.cache" />
+  </binary>
+</changelist>
