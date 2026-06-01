@@ -6,7 +6,7 @@ public class ConnectRequest
     public string ConnectionString { get; set; } = "tcp:127.0.0.1:5763";
 
     [JsonPropertyName("baud_rate")]
-    public int BaudRate { get; set; } = 57630;
+    public int BaudRate { get; set; } = 57600;
 
     [JsonPropertyName("heartbeat_timeout_seconds")]
     public double HeartbeatTimeoutSeconds { get; set; } = 10.0;

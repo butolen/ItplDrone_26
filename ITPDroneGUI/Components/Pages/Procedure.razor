@@ -19,6 +19,15 @@
         </div>
 
         <div class="mission-actions">
+            <button class="connect-button" type="button" @onclick="ToggleConnectionAsync" disabled="@(isConnecting || isRunning)">
+                @ConnectButtonLabel
+            </button>
+            <select class="mode-select" title="Flight mode" value="@selectedMode" @onchange="ChangeModeAsync" disabled="@(!isConnected || isRunning || isChangingMode)">
+                @foreach (var mode in selectableModes)
+                {
+                    <option value="@mode">@mode</option>
+                }
+            </select>
             <button class="run-button" type="button" @onclick="RunMissionAsync" disabled="@(!CanRunMission)">
                 <span class="play-symbol" aria-hidden="true">@PlaySymbolSvg</span>
                 <span>RUN MISSION</span>
@@ -28,14 +37,14 @@
     </header>
 
     <main class="forge-workbench">
-        <aside class="block-palette" @onpointermove="UpdatePointerDrag" @onpointerup="CancelPointerDrag">
+        <aside class="block-palette">
             @RenderPaletteSection("Movement", movementTemplates)
             @RenderPaletteSection("Navigation", navigationTemplates)
             @RenderPaletteSection("Logic", logicTemplates)
             @RenderPaletteSection("Safety", safetyTemplates)
         </aside>
 
-        <section class="mission-canvas" @ondragover:preventDefault @ondrop="DropTemplateAtEnd" @onpointermove="UpdatePointerDrag" @onpointerup="DropTemplateAtEndFromPointer">
+        <section class="mission-canvas">
             <div class="chain">
                 <div class="start-block block-shell">
                     @StartBlockSvg
@@ -44,30 +53,28 @@
                     </div>
                 </div>
 
-                @if (missionBlocks.Count == 0)
-                {
-                    <div class="insert-slot empty" @ondragover:preventDefault @ondrop="DropTemplateAtEnd" @onpointerup:stopPropagation @onpointerup="DropTemplateAtEndFromPointer">Drop first block here</div>
-                }
-                else
-                {
-                    <div class="insert-slot" @ondragover:preventDefault @ondrop="() => DropAt(0)" @onpointerup:stopPropagation @onpointerup="() => DropAtFromPointer(0)">Drop here</div>
-                }
-
-                @for (var index = 0; index < missionBlocks.Count; index++)
-                {
-                    var block = missionBlocks[index];
-                    var blockIndex = index;
-
-                    <article class="mission-block block-shell @(IsEndBlock(block.Kind) ? "end-block" : "") @(runningBlockId == block.Id ? "running" : "")" draggable="true" @ondragstart="() => BeginBlockDrag(block.Id)">
-                        @BlockShapeSvg(block.Kind)
-                        <div class="block-line drag-handle" @onpointerdown="args => BeginPotentialBlockDrag(block.Id, args)">
-                            @RenderBlockEditor(block)
-                            <button class="remove-block" type="button" title="Remove block" @onclick="() => RemoveBlock(block.Id)" @onpointerdown:stopPropagation @onpointerup:stopPropagation disabled="@isRunning">x</button>
-                        </div>
-                    </article>
-
-                    <div class="insert-slot" @ondragover:preventDefault @ondrop="() => DropAt(blockIndex + 1)" @onpointerup:stopPropagation @onpointerup="() => DropAtFromPointer(blockIndex + 1)">Drop here</div>
-                }
+                <SortableList TItem="MissionBlock"
+                              Items="missionBlocks"
+                              ItemKey="BlockKey"
+                              ContainerClass="mission-sortable-list"
+                              ItemClass="mission-sortable-item"
+                              PlaceholderClass="mission-sortable-placeholder"
+                              Disabled="@isRunning"
+                              OnMove="MoveMissionBlock"
+                              OnExternalDrop="AddBlockFromPalette">
+                    <EmptyContent>
+                        <div class="insert-slot empty">Drop first block here</div>
+                    </EmptyContent>
+                    <ItemTemplate Context="block">
+                        <article class="mission-block block-shell @(IsEndBlock(block.Kind) ? "end-block" : "") @(runningBlockId == block.Id ? "running" : "")">
+                            @BlockShapeSvg(block.Kind)
+                            <div class="block-line drag-handle">
+                                @RenderBlockEditor(block)
+                                <button class="remove-block" type="button" title="Remove block" @onclick="() => RemoveBlock(block.Id)" disabled="@isRunning">x</button>
+                            </div>
+                        </article>
+                    </ItemTemplate>
+                </SortableList>
             </div>
         </section>
     </main>
@@ -125,22 +132,30 @@
 
     private string status = "Ready";
     private string error = "";
-    private string? draggedTemplateKind;
-    private Guid? draggedBlockId;
-    private string? pendingTemplateKind;
-    private Guid? pendingBlockId;
-    private double pointerStartX;
-    private double pointerStartY;
-    private bool pointerDragActive;
+    private string selectedMode = "GUIDED";
     private Guid? runningBlockId;
     private TelemetrySnapshot telemetry = new();
     private bool isRunning;
     private bool isConnected;
+    private bool isConnecting;
+    private bool isChangingMode;
+
+    private readonly string[] selectableModes =
+    [
+        "GUIDED",
+        "STABILIZE",
+        "ALT_HOLD",
+        "LOITER",
+        "AUTO",
+        "RTL",
+        "LAND",
+    ];
 
     private string AltitudeLabel => FormattableString.Invariant($"{telemetry.AltitudeMeters:0.0}m");
     private string BatteryLabel => $"{telemetry.BatteryPercent:0}%";
     private string ModeLabel => string.IsNullOrWhiteSpace(telemetry.Mode) ? "UNKNOWN" : telemetry.Mode;
     private string ArmLabel => telemetry.Armed ? "ARMED" : "UNARMED";
+    private string ConnectButtonLabel => isConnecting ? "CONNECTING" : isConnected ? "DISCONNECT" : "CONNECT";
     private bool CanRunMission => isConnected && !isRunning && missionBlocks.Count > 0;
 
     protected override void OnInitialized()
@@ -152,183 +167,57 @@
         <h2>@title</h2>
         @foreach (var template in templates)
         {
-            <div class="palette-block block-shell" role="button" tabindex="0" draggable="true" @ondragstart="() => BeginTemplateDrag(template.Kind)" @onpointerdown="args => BeginPotentialTemplateDrag(template.Kind, args)">
+            <div class="palette-block block-shell" role="button" tabindex="0" data-sortable-template-kind="@template.Kind" aria-label="@template.Label">
                 @NormalBlockSvg
                 <span>@template.Label</span>
             </div>
         }
     </section>;
 
-    private void BeginTemplateDrag(BlockKind kind)
+    private static string BlockKey(MissionBlock block)
+    {
+        return block.Id.ToString("N");
+    }
+
+    private void AddBlockFromPalette(SortableListExternalDropEventArgs args)
     {
         if (isRunning)
         {
             return;
         }
 
-        ClearPointerDragState();
-        draggedTemplateKind = kind.ToString();
-        draggedBlockId = null;
+        if (!Enum.TryParse<BlockKind>(args.Payload, out var kind))
+        {
+            return;
+        }
+
+        missionBlocks.Insert(Math.Clamp(args.NewIndex, 0, missionBlocks.Count), CreateBlock(kind));
     }
 
-    private void BeginBlockDrag(Guid blockId)
+    private void MoveMissionBlock(SortableListMoveEventArgs args)
     {
         if (isRunning)
         {
             return;
         }
 
-        ClearPointerDragState();
-        draggedBlockId = blockId;
-        draggedTemplateKind = null;
-    }
-
-    private void BeginPotentialTemplateDrag(BlockKind kind, Microsoft.AspNetCore.Components.Web.PointerEventArgs args)
-    {
-        if (isRunning)
-        {
-            return;
-        }
-
-        pendingTemplateKind = kind.ToString();
-        pendingBlockId = null;
-        pointerStartX = args.ClientX;
-        pointerStartY = args.ClientY;
-        pointerDragActive = false;
-    }
-
-    private void BeginPotentialBlockDrag(Guid blockId, Microsoft.AspNetCore.Components.Web.PointerEventArgs args)
-    {
-        if (isRunning)
-        {
-            return;
-        }
-
-        pendingBlockId = blockId;
-        pendingTemplateKind = null;
-        pointerStartX = args.ClientX;
-        pointerStartY = args.ClientY;
-        pointerDragActive = false;
-    }
-
-    private void UpdatePointerDrag(Microsoft.AspNetCore.Components.Web.PointerEventArgs args)
-    {
-        if (isRunning || pointerDragActive || (pendingTemplateKind is null && pendingBlockId is null))
-        {
-            return;
-        }
-
-        var dx = args.ClientX - pointerStartX;
-        var dy = args.ClientY - pointerStartY;
-        if ((dx * dx) + (dy * dy) < 64)
-        {
-            return;
-        }
-
-        draggedTemplateKind = pendingTemplateKind;
-        draggedBlockId = pendingBlockId;
-        pointerDragActive = true;
-    }
-
-    private void DropTemplateAtEnd()
-    {
-        DropAt(missionBlocks.Count);
-    }
-
-    private void DropTemplateAtEndFromPointer()
-    {
-        DropAtFromPointer(missionBlocks.Count);
-    }
-
-    private void DropAtFromPointer(int targetIndex)
-    {
-        if (!pointerDragActive)
-        {
-            ClearPointerDragState();
-            return;
-        }
-
-        DropAt(targetIndex);
-        ClearPointerDragState();
-    }
-
-    private void CancelPointerDrag()
-    {
-        if (!pointerDragActive)
-        {
-            ClearPointerDragState();
-        }
-    }
-
-    private void DropAt(int targetIndex)
-    {
-        if (isRunning)
-        {
-            ClearDragState();
-            return;
-        }
-
-        if (TryTakeDraggedTemplate(out var kind))
-        {
-            missionBlocks.Insert(Math.Clamp(targetIndex, 0, missionBlocks.Count), CreateBlock(kind));
-            return;
-        }
-
-        if (draggedBlockId is null)
-        {
-            return;
-        }
-
-        var currentIndex = missionBlocks.FindIndex(block => block.Id == draggedBlockId.Value);
+        var currentIndex = missionBlocks.FindIndex(block => BlockKey(block) == args.ItemId);
         if (currentIndex < 0)
         {
-            ClearDragState();
-            return;
-        }
-
-        if (currentIndex == targetIndex || currentIndex + 1 == targetIndex)
-        {
-            ClearDragState();
             return;
         }
 
         var movedBlock = missionBlocks[currentIndex];
         missionBlocks.RemoveAt(currentIndex);
+        var targetIndex = Math.Clamp(args.NewIndex, 0, missionBlocks.Count);
 
-        if (currentIndex < targetIndex)
+        if (currentIndex == targetIndex)
         {
-            targetIndex--;
+            missionBlocks.Insert(currentIndex, movedBlock);
+            return;
         }
 
-        missionBlocks.Insert(Math.Clamp(targetIndex, 0, missionBlocks.Count), movedBlock);
-        ClearDragState();
-    }
-
-    private bool TryTakeDraggedTemplate(out BlockKind kind)
-    {
-        kind = default;
-
-        if (string.IsNullOrWhiteSpace(draggedTemplateKind)
-            || !Enum.TryParse(draggedTemplateKind, out kind))
-        {
-            return false;
-        }
-
-        ClearDragState();
-        return true;
-    }
-
-    private void ClearDragState()
-    {
-        draggedTemplateKind = null;
-        draggedBlockId = null;
-    }
-
-    private void ClearPointerDragState()
-    {
-        pendingTemplateKind = null;
-        pendingBlockId = null;
-        pointerDragActive = false;
+        missionBlocks.Insert(targetIndex, movedBlock);
     }
 
     private static MissionBlock CreateBlock(BlockKind kind)
@@ -359,6 +248,76 @@
         }
 
         missionBlocks.RemoveAll(block => block.Id == id);
+    }
+
+    private async Task ToggleConnectionAsync()
+    {
+        if (isConnecting || isRunning)
+        {
+            return;
+        }
+
+        error = "";
+        isConnecting = true;
+
+        try
+        {
+            if (isConnected)
+            {
+                await EnsureSuccess("Disconnect", Drone.Disconnect());
+                isConnected = false;
+                status = "Disconnected";
+                return;
+            }
+
+            status = "Connecting";
+            await EnsureSuccess("Connect", Drone.Connect());
+            await RefreshTelemetryAsync();
+            status = isConnected ? "Connected" : "Connect sent";
+        }
+        catch (Exception exception)
+        {
+            status = isConnected ? "Disconnect failed" : "Connect failed";
+            error = exception.Message;
+        }
+        finally
+        {
+            isConnecting = false;
+        }
+    }
+
+    private async Task ChangeModeAsync(ChangeEventArgs args)
+    {
+        var newMode = args.Value?.ToString();
+        if (string.IsNullOrWhiteSpace(newMode))
+        {
+            return;
+        }
+
+        selectedMode = newMode;
+        if (!isConnected || isRunning || isChangingMode)
+        {
+            return;
+        }
+
+        error = "";
+        isChangingMode = true;
+
+        try
+        {
+            await EnsureSuccess($"Set mode {newMode}", Drone.SetMode(newMode));
+            status = $"Mode set: {newMode}";
+            await RefreshTelemetryAsync();
+        }
+        catch (Exception exception)
+        {
+            status = "Mode change failed";
+            error = exception.Message;
+        }
+        finally
+        {
+            isChangingMode = false;
+        }
     }
 
     private async Task RunMissionAsync()
@@ -721,6 +680,13 @@
             var json = await Drone.GetStatus();
             telemetry = TelemetrySnapshot.FromJson(json);
             isConnected = telemetry.Connected;
+
+            if (!isChangingMode
+                && !string.IsNullOrWhiteSpace(telemetry.Mode)
+                && selectableModes.Contains(telemetry.Mode, StringComparer.OrdinalIgnoreCase))
+            {
+                selectedMode = telemetry.Mode;
+            }
         }
         catch
         {
@@ -1025,7 +991,7 @@
 
     .forge-toolbar {
         display: grid;
-        grid-template-columns: 268px minmax(520px, 1fr) 396px;
+        grid-template-columns: 268px minmax(420px, 1fr) minmax(620px, auto);
         align-items: center;
         gap: 18px;
         background: #202a42;
@@ -1066,19 +1032,39 @@
 
     .mission-actions {
         display: flex;
+        align-items: center;
         justify-content: flex-end;
-        gap: 32px;
+        gap: 14px;
     }
 
+    .connect-button,
     .run-button,
-    .abort-button {
-        min-width: 162px;
+    .abort-button,
+    .mode-select {
         height: 34px;
-        border: 0;
         border-radius: 4px;
         color: #ffffff;
         font-size: 0.82rem;
         font-weight: 800;
+    }
+
+    .connect-button,
+    .run-button,
+    .abort-button {
+        min-width: 142px;
+        border: 0;
+    }
+
+    .connect-button {
+        min-width: 116px;
+        background: #3a4a69;
+    }
+
+    .mode-select {
+        width: 132px;
+        border: 1px solid #4d5f82;
+        background: #26334d;
+        padding: 0 10px;
     }
 
     .run-button {
@@ -1206,20 +1192,21 @@
 
     .chain {
         position: relative;
-        min-width: max-content;
+        width: max-content;
+        min-width: 275px;
         min-height: 620px;
         margin: 126px auto 90px;
         display: flex;
         flex-direction: column;
-        align-items: center;
-        padding: 0 80px;
+        align-items: flex-start;
+        padding: 0;
     }
 
     .start-block {
         width: 275px;
         height: 48px;
         display: grid;
-        place-items: start center;
+        place-items: start start;
     }
 
     .start-line {
@@ -1229,31 +1216,42 @@
         padding: 0 36px 0 66px;
     }
 
-    .insert-slot {
-        width: 360px;
-        height: 14px;
-        min-height: 14px;
-        margin: -1px 0;
-        color: transparent;
-        display: grid;
-        place-items: center;
-        border-radius: 4px;
-        transition: background 120ms ease, height 120ms ease, min-height 120ms ease;
+    .mission-sortable-list {
+        width: max-content;
+        min-width: 275px;
+        min-height: 72px;
+        margin-top: 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
     }
 
-    .insert-slot.empty {
+    .mission-sortable-item {
+        margin-top: 0;
+    }
+
+    .mission-sortable-placeholder {
+        box-sizing: border-box;
+        min-width: 275px;
+        min-height: 40px;
+        margin-top: 0;
+        border: 2px dashed rgba(58, 74, 105, 0.55);
+        border-radius: 5px;
+        background: rgba(58, 74, 105, 0.16);
+    }
+
+    .insert-slot {
+        width: 360px;
         min-height: 74px;
-        margin-top: 18px;
+        margin-top: 26px;
+        display: grid;
+        place-items: center;
         border: 2px dashed #6a748a;
+        border-radius: 4px;
         color: #44506a;
         font-weight: 800;
         background: rgba(255,255,255,0.18);
-    }
-
-    .insert-slot:not(.empty):hover {
-        height: 34px;
-        min-height: 34px;
-        background: rgba(58, 74, 105, 0.16);
     }
 
     .mission-block {
@@ -1301,6 +1299,23 @@
 
     .drag-handle {
         cursor: grab;
+    }
+
+    .sortable-dragging,
+    .sortable-dragging * {
+        cursor: grabbing !important;
+    }
+
+    .sortable-drag-ghost {
+        z-index: 10000;
+        opacity: 0.94;
+        filter: drop-shadow(0 12px 22px rgba(21, 27, 42, 0.24));
+    }
+
+    .sortable-drag-ghost input,
+    .sortable-drag-ghost select,
+    .sortable-drag-ghost button {
+        pointer-events: none;
     }
 
     .remove-block {
@@ -1407,7 +1422,7 @@
 
         .chain {
             align-items: flex-start;
-            margin: 72px 0 72px;
+            margin: 72px auto;
         }
     }
 </style>

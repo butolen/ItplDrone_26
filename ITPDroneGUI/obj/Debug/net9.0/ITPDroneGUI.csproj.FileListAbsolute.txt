@@ -94,3 +94,5 @@ C:\Users\manue\Documents\GitHub\ItplDrone_26\ITPDroneGUI\bin\CodexRun\ITPDroneGU
 C:\Users\manue\Documents\GitHub\ItplDrone_26\ITPDroneGUI\bin\CodexRun\ITPDroneGUI.runtimeconfig.json
 C:\Users\manue\Documents\GitHub\ItplDrone_26\ITPDroneGUI\bin\CodexRun\ITPDroneGUI.dll
 C:\Users\manue\Documents\GitHub\ItplDrone_26\ITPDroneGUI\bin\CodexRun\ITPDroneGUI.pdb
+C:\Users\manue\Documents\GitHub\ItplDrone_26\ITPDroneGUI\obj\Debug\net9.0\compressed\d6w072eypv-{0}-fbvmpbhgv2-fbvmpbhgv2.gz
+C:\Users\manue\Documents\GitHub\ItplDrone_26\ITPDroneGUI\obj\Debug\net9.0\compressed\gnyl75k55e-{0}-iyjtoqhueb-iyjtoqhueb.gz
