@@ -6,6 +6,7 @@ from app.command_executor import CommandExecutor
 from app.drone_controller import DroneController
 from models.models import (
     ConnectRequest,
+    GlobalPositionRequest,
     LocalPositionRequest,
     ModeRequest,
     RawCommandRequest,
@@ -149,6 +150,24 @@ def goto_local_position(request: LocalPositionRequest) -> dict:
     try:
         drone_controller.goto_local_ned(request.x, request.y, request.z)
         return {"success": True}
+    except Exception as exception:
+        raise HTTPException(status_code=500, detail=str(exception))
+
+
+@app.post("/position/global")
+def goto_global_position(request: GlobalPositionRequest) -> dict:
+    try:
+        drone_controller.goto_global_relative(
+            request.latitude_deg,
+            request.longitude_deg,
+            request.altitude_meters,
+        )
+        return {
+            "success": True,
+            "latitude_deg": request.latitude_deg,
+            "longitude_deg": request.longitude_deg,
+            "altitude_meters": request.altitude_meters,
+        }
     except Exception as exception:
         raise HTTPException(status_code=500, detail=str(exception))
 

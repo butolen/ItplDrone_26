@@ -47,6 +47,12 @@ class LocalPositionRequest(BaseModel):
     z: float
 
 
+class GlobalPositionRequest(BaseModel):
+    latitude_deg: float = Field(..., ge=-90.0, le=90.0)
+    longitude_deg: float = Field(..., ge=-180.0, le=180.0)
+    altitude_meters: float = Field(default=5.0, ge=0.0, le=100.0)
+
+
 class YawRequest(BaseModel):
     yaw_degrees: float
     yaw_speed_deg_per_sec: float = Field(default=20.0, gt=0.0)

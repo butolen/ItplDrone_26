@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import threading
 import time
+import math
 from typing import Any, Optional
 
 from pymavlink import mavutil
@@ -21,6 +22,26 @@ class DroneController:
         self._connection_string: Optional[str] = None
         self._baud_rate: Optional[int] = None
         self._last_relative_altitude_m: Optional[float] = None
+        self._last_battery_percent: Optional[int] = None
+        self._last_battery_voltage_v: Optional[float] = None
+        self._last_mode_name: Optional[str] = None
+        self._last_armed: Optional[bool] = None
+        self._last_base_mode: Optional[int] = None
+        self._last_custom_mode: Optional[int] = None
+        self._last_absolute_altitude_m: Optional[float] = None
+        self._last_latitude_deg: Optional[float] = None
+        self._last_longitude_deg: Optional[float] = None
+        self._last_local_x_m: Optional[float] = None
+        self._last_local_y_m: Optional[float] = None
+        self._last_local_z_m: Optional[float] = None
+        self._last_roll_rad: Optional[float] = None
+        self._last_pitch_rad: Optional[float] = None
+        self._last_yaw_rad: Optional[float] = None
+        self._last_heading_deg: Optional[float] = None
+        self._last_groundspeed_mps: Optional[float] = None
+        self._last_climb_mps: Optional[float] = None
+        self._last_gps_fix_type: Optional[int] = None
+        self._last_satellites_visible: Optional[int] = None
 
     @property
     def master(self) -> mavutil.mavfile:
@@ -71,6 +92,15 @@ class DroneController:
             self._connection_string = connection_string
             self._baud_rate = baud_rate
 
+        self._remember_armed(
+            heartbeat.base_mode
+            & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED
+            != 0
+        )
+        mode_name = self._mode_name_from_custom_mode(int(heartbeat.custom_mode))
+        if mode_name is not None:
+            self._remember_mode(mode_name)
+
         self._request_telemetry_streams()
 
     def disconnect(self) -> None:
@@ -98,6 +128,7 @@ class DroneController:
                 mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
                 mode_mapping[mode_name],
             )
+            self._remember_mode(mode_name)
 
     def arm(self, timeout: float = 10.0) -> None:
         print("[ARM] Sende ARM")
@@ -122,6 +153,7 @@ class DroneController:
                 ) != 0
                 print(f"[ARM] Status: {'ARMED' if armed else 'DISARMED'}")
                 if armed:
+                    self._remember_armed(True)
                     print("[ARM] OK")
                     return
 
@@ -132,6 +164,7 @@ class DroneController:
         self.release_rc_override()
         with self._lock:
             self.master.arducopter_disarm()
+        self._remember_armed(False)
 
     def takeoff(
         self,
@@ -241,6 +274,33 @@ class DroneController:
                 x,
                 y,
                 z,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+            )
+
+    def goto_global_relative(
+        self,
+        latitude_deg: float,
+        longitude_deg: float,
+        altitude_meters: float,
+    ) -> None:
+        self.set_mode("GUIDED")
+        with self._lock:
+            self.master.mav.set_position_target_global_int_send(
+                int(time.time() * 1000) & 0xFFFFFFFF,
+                self.master.target_system,
+                self.master.target_component,
+                mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT_INT,
+                3576,
+                int(latitude_deg * 10_000_000),
+                int(longitude_deg * 10_000_000),
+                altitude_meters,
                 0,
                 0,
                 0,
@@ -367,61 +427,37 @@ class DroneController:
         if not self.is_connected():
             return {"connected": False}
 
-        heartbeat = self.master.recv_match(type="HEARTBEAT", blocking=False)
-        attitude = self.master.recv_match(type="ATTITUDE", blocking=False)
-        altitude = self.master.recv_match(type="ALTITUDE", blocking=False)
-        global_position = self.master.recv_match(type="GLOBAL_POSITION_INT", blocking=False)
-        local_position = self.master.recv_match(type="LOCAL_POSITION_NED", blocking=False)
-        vfr_hud = self.master.recv_match(type="VFR_HUD", blocking=False)
-        sys_status = self.master.recv_match(type="SYS_STATUS", blocking=False)
-        battery_status = self.master.recv_match(type="BATTERY_STATUS", blocking=False)
+        self._drain_mavlink_messages(0.03)
+        return self._status_snapshot()
 
-        result: dict[str, Any] = {
+    def _status_snapshot(self) -> dict[str, Any]:
+        return {
             "connected": True,
             "connection": self.get_connection_info(),
             "last_heartbeat_time": self._last_heartbeat_time,
+            "base_mode": self._last_base_mode,
+            "custom_mode": self._last_custom_mode,
+            "altitude_relative_m": self._last_relative_altitude_m if self._last_relative_altitude_m is not None else 0.0,
+            "relative_altitude_m": self._last_relative_altitude_m if self._last_relative_altitude_m is not None else 0.0,
+            "absolute_altitude_m": self._last_absolute_altitude_m if self._last_absolute_altitude_m is not None else 0.0,
+            "battery_remaining_percent": self._battery_percent_or_voltage_estimate(),
+            "battery_voltage_v": self._last_battery_voltage_v if self._last_battery_voltage_v is not None else 0.0,
+            "mode": self._last_mode_name or "UNKNOWN",
+            "armed": self._last_armed if self._last_armed is not None else False,
+            "latitude_deg": self._last_latitude_deg,
+            "longitude_deg": self._last_longitude_deg,
+            "local_position_x_m": self._last_local_x_m,
+            "local_position_y_m": self._last_local_y_m,
+            "local_position_z_m": self._last_local_z_m,
+            "roll": self._last_roll_rad,
+            "pitch": self._last_pitch_rad,
+            "yaw": self._last_yaw_rad,
+            "heading_deg": self._last_heading_deg,
+            "groundspeed_mps": self._last_groundspeed_mps if self._last_groundspeed_mps is not None else 0.0,
+            "climb_mps": self._last_climb_mps if self._last_climb_mps is not None else 0.0,
+            "gps_fix_type": self._last_gps_fix_type if self._last_gps_fix_type is not None else 0,
+            "satellites_visible": self._last_satellites_visible if self._last_satellites_visible is not None else 0,
         }
-
-        if heartbeat is not None:
-            result["base_mode"] = int(heartbeat.base_mode)
-            result["custom_mode"] = int(heartbeat.custom_mode)
-            result["armed"] = (
-                heartbeat.base_mode
-                & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED
-            ) != 0
-            self._last_heartbeat_time = time.time()
-
-        if attitude is not None:
-            result["roll"] = float(attitude.roll)
-            result["pitch"] = float(attitude.pitch)
-            result["yaw"] = float(attitude.yaw)
-
-        if altitude is not None:
-            result["altitude_local_m"] = float(altitude.altitude_local)
-            result["altitude_relative_m"] = self._remember_altitude(float(altitude.altitude_relative))
-
-        if global_position is not None:
-            result["relative_altitude_m"] = self._remember_altitude(float(global_position.relative_alt) / 1000.0)
-
-        if local_position is not None:
-            result["local_position_z_m"] = float(local_position.z)
-            result["relative_altitude_m"] = self._remember_altitude(max(0.0, -float(local_position.z)))
-
-        if vfr_hud is not None:
-            result["vfr_altitude_m"] = float(vfr_hud.alt)
-
-        if sys_status is not None:
-            if int(sys_status.battery_remaining) >= 0:
-                result["battery_remaining_percent"] = int(sys_status.battery_remaining)
-            if int(sys_status.voltage_battery) > 0:
-                result["battery_voltage_v"] = float(sys_status.voltage_battery) / 1000.0
-
-        if battery_status is not None:
-            remaining = int(getattr(battery_status, "battery_remaining", -1))
-            if remaining >= 0:
-                result["battery_remaining_percent"] = remaining
-
-        return result
 
     def _relative_altitude_m(
         self,
@@ -460,9 +496,11 @@ class DroneController:
             mavutil.mavlink.MAVLINK_MSG_ID_GLOBAL_POSITION_INT,
             mavutil.mavlink.MAVLINK_MSG_ID_LOCAL_POSITION_NED,
             mavutil.mavlink.MAVLINK_MSG_ID_ALTITUDE,
+            mavutil.mavlink.MAVLINK_MSG_ID_ATTITUDE,
             mavutil.mavlink.MAVLINK_MSG_ID_VFR_HUD,
             mavutil.mavlink.MAVLINK_MSG_ID_SYS_STATUS,
             mavutil.mavlink.MAVLINK_MSG_ID_BATTERY_STATUS,
+            mavutil.mavlink.MAVLINK_MSG_ID_GPS_RAW_INT,
         ]
 
         with self._lock:
@@ -489,14 +527,108 @@ class DroneController:
                 1,
             )
 
-    def _drain_mavlink_messages(self, duration_seconds: float) -> None:
+    def _drain_mavlink_messages(self, duration_seconds: float, max_messages: int = 300) -> None:
         end_time = time.time() + duration_seconds
-        while time.time() < end_time:
+        messages_read = 0
+
+        while messages_read < max_messages and time.time() < end_time:
             with self._lock:
                 message = self.master.recv_match(blocking=False)
-            altitude = self._altitude_from_message(message)
-            if altitude is not None:
-                self._remember_altitude(altitude)
+
+            if message is None:
+                time.sleep(0.005)
+                continue
+
+            messages_read += 1
+            self._remember_message(message)
+
+    def _remember_message(self, message: Any) -> None:
+        if message is None:
+            return
+
+        message_type = message.get_type()
+
+        if message_type == "HEARTBEAT":
+            self._last_base_mode = int(message.base_mode)
+            self._last_custom_mode = int(message.custom_mode)
+            self._remember_armed(
+                message.base_mode
+                & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED
+                != 0
+            )
+            mode_name = self._mode_name_from_custom_mode(int(message.custom_mode))
+            if mode_name is not None:
+                self._remember_mode(mode_name)
+            self._last_heartbeat_time = time.time()
+            return
+
+        if message_type == "ATTITUDE":
+            self._last_roll_rad = float(message.roll)
+            self._last_pitch_rad = float(message.pitch)
+            self._last_yaw_rad = float(message.yaw)
+            self._last_heading_deg = (math.degrees(float(message.yaw)) + 360.0) % 360.0
+            return
+
+        if message_type == "ALTITUDE":
+            self._last_absolute_altitude_m = float(message.altitude_amsl)
+            self._remember_altitude(float(message.altitude_relative))
+            return
+
+        if message_type == "GLOBAL_POSITION_INT":
+            self._last_latitude_deg = float(message.lat) / 10_000_000.0
+            self._last_longitude_deg = float(message.lon) / 10_000_000.0
+            self._last_absolute_altitude_m = float(message.alt) / 1000.0
+            self._remember_altitude(float(message.relative_alt) / 1000.0)
+            heading_raw = int(getattr(message, "hdg", 65535))
+            if heading_raw != 65535:
+                self._last_heading_deg = heading_raw / 100.0
+            vx = float(getattr(message, "vx", 0.0)) / 100.0
+            vy = float(getattr(message, "vy", 0.0)) / 100.0
+            self._last_groundspeed_mps = math.hypot(vx, vy)
+            return
+
+        if message_type == "LOCAL_POSITION_NED":
+            self._last_local_x_m = float(message.x)
+            self._last_local_y_m = float(message.y)
+            self._last_local_z_m = float(message.z)
+            self._remember_altitude(max(0.0, -float(message.z)))
+            return
+
+        if message_type == "VFR_HUD":
+            self._last_absolute_altitude_m = float(message.alt)
+            self._last_heading_deg = float(message.heading)
+            self._last_groundspeed_mps = float(message.groundspeed)
+            self._last_climb_mps = float(message.climb)
+            return
+
+        if message_type == "SYS_STATUS":
+            if int(message.battery_remaining) >= 0:
+                self._remember_battery_percent(int(message.battery_remaining))
+            if int(message.voltage_battery) > 0:
+                self._remember_battery_voltage(float(message.voltage_battery) / 1000.0)
+            return
+
+        if message_type == "BATTERY_STATUS":
+            remaining = int(getattr(message, "battery_remaining", -1))
+            if remaining >= 0:
+                self._remember_battery_percent(remaining)
+            voltages = getattr(message, "voltages", [])
+            valid_voltages = [value for value in voltages if 0 < int(value) < 65535]
+            if valid_voltages:
+                self._remember_battery_voltage(sum(valid_voltages) / 1000.0)
+            return
+
+        if message_type == "GPS_RAW_INT":
+            self._last_gps_fix_type = int(getattr(message, "fix_type", 0))
+            self._last_satellites_visible = int(getattr(message, "satellites_visible", 0))
+            lat = int(getattr(message, "lat", 0))
+            lon = int(getattr(message, "lon", 0))
+            if lat != 0 or lon != 0:
+                self._last_latitude_deg = lat / 10_000_000.0
+                self._last_longitude_deg = lon / 10_000_000.0
+            alt = int(getattr(message, "alt", 0))
+            if alt != 0:
+                self._last_absolute_altitude_m = alt / 1000.0
 
     def _altitude_from_message(self, message: Any) -> float | None:
         if message is None:
@@ -515,6 +647,42 @@ class DroneController:
     def _remember_altitude(self, altitude_meters: float) -> float:
         self._last_relative_altitude_m = altitude_meters
         return altitude_meters
+
+    def _remember_battery_percent(self, battery_percent: int) -> int:
+        self._last_battery_percent = battery_percent
+        return battery_percent
+
+    def _remember_battery_voltage(self, voltage_v: float) -> float:
+        self._last_battery_voltage_v = voltage_v
+        return voltage_v
+
+    def _battery_percent_or_voltage_estimate(self) -> int:
+        if self._last_battery_percent is not None:
+            return self._last_battery_percent
+
+        if self._last_battery_voltage_v is None:
+            return 0
+
+        # ArduPilot SITL sometimes exposes voltage but no percentage. Estimate a
+        # 3S LiPo range so the GUI can still show a useful numeric battery value.
+        estimated = round((self._last_battery_voltage_v - 10.5) / (12.6 - 10.5) * 100)
+        return max(0, min(100, estimated))
+
+    def _remember_mode(self, mode_name: str) -> str:
+        self._last_mode_name = mode_name
+        return mode_name
+
+    def _remember_armed(self, armed: bool) -> bool:
+        self._last_armed = armed
+        return armed
+
+    def _mode_name_from_custom_mode(self, custom_mode: int) -> str | None:
+        mode_mapping = self.master.mode_mapping()
+        if mode_mapping is None:
+            return None
+
+        reverse_mapping = {mode_id: mode_name for mode_name, mode_id in mode_mapping.items()}
+        return reverse_mapping.get(custom_mode)
 
     def _recv_status(self):
         with self._lock:

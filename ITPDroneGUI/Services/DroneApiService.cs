@@ -83,6 +83,18 @@ public class DroneApiService
         public double Z { get; set; }
     }
 
+    public class GlobalPositionRequest
+    {
+        [JsonPropertyName("latitude_deg")]
+        public double LatitudeDeg { get; set; }
+
+        [JsonPropertyName("longitude_deg")]
+        public double LongitudeDeg { get; set; }
+
+        [JsonPropertyName("altitude_meters")]
+        public double AltitudeMeters { get; set; }
+    }
+
     public class YawRequest
     {
         [JsonPropertyName("yaw_degrees")]
@@ -237,9 +249,34 @@ public class DroneApiService
         return PostAsync<object>("/land");
     }
 
+    public Task<ApiResponse<object>> Rtl()
+    {
+        return PostAsync<object>("/rtl");
+    }
+
     public Task<ApiResponse<object>> Disconnect()
     {
         return PostAsync<object>("/disconnect");
+    }
+
+    public Task<ApiResponse<object>> GotoLocal(double x, double y, double z)
+    {
+        return PostAsync<object>("/position/local", new LocalPositionRequest
+        {
+            X = x,
+            Y = y,
+            Z = z,
+        });
+    }
+
+    public Task<ApiResponse<object>> GotoGlobal(double latitudeDeg, double longitudeDeg, double altitudeMeters)
+    {
+        return PostAsync<object>("/position/global", new GlobalPositionRequest
+        {
+            LatitudeDeg = latitudeDeg,
+            LongitudeDeg = longitudeDeg,
+            AltitudeMeters = altitudeMeters,
+        });
     }
 
     public Task<ApiResponse<object>> Yaw(double yawDegrees, double yawSpeed = 20.0, bool isRelative = false)

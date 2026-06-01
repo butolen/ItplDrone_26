@@ -29,7 +29,7 @@ set home 48.411008, 15.593409
 
 Befehle in WebGui sende
 
-handy:
+für handy in pc powershell:
 
 netsh interface portproxy add v4tov4 listenport=5760 listenaddress=0.0.0.0 connectport=5760 connectaddress=192.168.252.239
 netsh advfirewall firewall add rule name="ArduPilot5760" dir=in action=allow protocol=TCP localport=5760
