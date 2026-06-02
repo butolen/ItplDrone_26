@@ -1,24 +1,38 @@
 @page "/procedure"
 @implements IAsyncDisposable
 @inject DroneApiService Drone
+@inject ProcedureStorageService Storage
 
 <PageTitle>DroneForge</PageTitle>
 
 <div class="forge-page">
     <header class="forge-toolbar">
         <div class="brand">
-            <span class="brand-logo" aria-hidden="true"><img src="droneforge-logo.svg" alt="" /></span>
+            <span class="brand-logo" aria-hidden="true">@DroneLogoSvg</span>
             <span>DroneForge</span>
         </div>
 
         <div class="telemetry">
             <span>ALT: @AltitudeLabel</span>
-            <span>BAT: @BatteryLabel</span>
             <span>MODE: @ModeLabel</span>
             <span>@ArmLabel</span>
         </div>
 
         <div class="mission-actions">
+            <select class="route-select" title="Saved routes" value="@selectedRouteId" @onchange="LoadRouteSelectionAsync" disabled="@(isRunning || isLoadingRoutes)">
+                <option value="">Saved routes</option>
+                @foreach (var route in savedRoutes)
+                {
+                    <option value="@route.Id">@route.Name</option>
+                }
+            </select>
+            <input class="route-name-input" type="text" placeholder="Route name" @bind="routeName" @bind:event="oninput" disabled="@isRunning" />
+            <button class="save-route-button" type="button" @onclick="SaveRouteAsync" disabled="@(isRunning || isSavingRoute || missionBlocks.Count == 0)">
+                @(isSavingRoute ? "SAVING" : "SAVE ROUTE")
+            </button>
+            <button class="optimize-route-button" type="button" @onclick="OptimizeGpsRouteAsync" disabled="@(!CanOptimizeGpsRoute)">
+                OPTIMIZE GPS
+            </button>
             <button class="connect-button" type="button" @onclick="ToggleConnectionAsync" disabled="@(isConnecting || isRunning)">
                 @ConnectButtonLabel
             </button>
@@ -89,12 +103,72 @@
             <pre>@error</pre>
         }
     </footer>
+
+    <aside class="gps-map-card" aria-label="Live GPS map">
+        <div class="gps-map-title">
+            <span>GPS Map</span>
+            <strong>@GpsFixLabel</strong>
+        </div>
+        <div class="gps-map-frame">
+            <svg class="gps-map" viewBox="0 0 240 160" role="img" aria-label="Drone position map">
+                <defs>
+                    <pattern id="gps-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#3f4e6f" stroke-width="0.8" />
+                    </pattern>
+                    <radialGradient id="gps-glow" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.45" />
+                        <stop offset="100%" stop-color="#8fd4ff" stop-opacity="0" />
+                    </radialGradient>
+                </defs>
+                <rect width="240" height="160" rx="6" fill="#182235" />
+                <rect width="240" height="160" rx="6" fill="url(#gps-grid)" />
+                <line x1="120" y1="12" x2="120" y2="148" class="gps-axis" />
+                <line x1="12" y1="80" x2="228" y2="80" class="gps-axis" />
+                @MapNorthLabelSvg
+
+                @if (HasMapPosition)
+                {
+                    <circle class="gps-home-ring" cx="@MapHomeX" cy="@MapHomeY" r="7" />
+                    <circle class="gps-home-dot" cx="@MapHomeX" cy="@MapHomeY" r="3" />
+
+                    @if (!string.IsNullOrWhiteSpace(MapPathPoints))
+                    {
+                        <polyline class="gps-trail" points="@MapPathPoints" />
+                    }
+
+                    <line class="gps-heading" x1="@DroneMapX" y1="@DroneMapY" x2="@DroneHeadingX" y2="@DroneHeadingY" />
+                    <circle class="gps-drone-glow" cx="@DroneMapX" cy="@DroneMapY" r="18" />
+                    <circle class="gps-drone-marker" cx="@DroneMapX" cy="@DroneMapY" r="6" />
+                }
+                else
+                {
+                    @MapWaitingLabelSvg
+                }
+            </svg>
+        </div>
+        <div class="gps-map-readout">
+            <span><b>LAT</b>@LatitudeLabel</span>
+            <span><b>LON</b>@LongitudeLabel</span>
+            <span><b>SPAN</b>@MapRangeLabel</span>
+        </div>
+    </aside>
 </div>
 
 @code {
     private readonly CancellationTokenSource telemetryCancellation = new();
     private CancellationTokenSource? missionCancellation;
     private readonly List<MissionBlock> missionBlocks = new();
+    private List<SavedRouteSummary> savedRoutes = new();
+    private readonly List<MapTrailPoint> gpsTrail = new();
+    private MapTrailPoint? latestMapPoint;
+    private double? mapOriginLatitude;
+    private double? mapOriginLongitude;
+    private double? mapOriginLocalX;
+    private double? mapOriginLocalY;
+
+    private const double MapWidth = 240.0;
+    private const double MapHeight = 160.0;
+    private const double MapPadding = 20.0;
 
     private readonly BlockTemplate[] movementTemplates =
     [
@@ -133,12 +207,16 @@
     private string status = "Ready";
     private string error = "";
     private string selectedMode = "GUIDED";
+    private string selectedRouteId = "";
+    private string routeName = "";
     private Guid? runningBlockId;
     private TelemetrySnapshot telemetry = new();
     private bool isRunning;
     private bool isConnected;
     private bool isConnecting;
     private bool isChangingMode;
+    private bool isLoadingRoutes;
+    private bool isSavingRoute;
 
     private readonly string[] selectableModes =
     [
@@ -152,15 +230,29 @@
     ];
 
     private string AltitudeLabel => FormattableString.Invariant($"{telemetry.AltitudeMeters:0.0}m");
-    private string BatteryLabel => $"{telemetry.BatteryPercent:0}%";
+    private string LatitudeLabel => telemetry.Latitude is null ? "--" : FormattableString.Invariant($"{telemetry.Latitude.Value:0.0000000}");
+    private string LongitudeLabel => telemetry.Longitude is null ? "--" : FormattableString.Invariant($"{telemetry.Longitude.Value:0.0000000}");
+    private string GpsFixLabel => telemetry.GpsFixType <= 0 ? $"NO FIX / {telemetry.SatellitesVisible} SAT" : $"{telemetry.GpsFixType} / {telemetry.SatellitesVisible} SAT";
     private string ModeLabel => string.IsNullOrWhiteSpace(telemetry.Mode) ? "UNKNOWN" : telemetry.Mode;
     private string ArmLabel => telemetry.Armed ? "ARMED" : "UNARMED";
     private string ConnectButtonLabel => isConnecting ? "CONNECTING" : isConnected ? "DISCONNECT" : "CONNECT";
     private bool CanRunMission => isConnected && !isRunning && missionBlocks.Count > 0;
+    private bool CanOptimizeGpsRoute => !isRunning && missionBlocks.Count(block => block.Kind == BlockKind.GotoGps) >= 2;
+    private bool HasMapPosition => latestMapPoint is not null;
+    private string MapPathPoints => gpsTrail.Count < 2 ? string.Empty : string.Join(" ", gpsTrail.Select(point => FormatSvgPoint(ProjectMapPoint(point))));
+    private string MapHomeX => gpsTrail.Count == 0 ? SvgNumber(MapWidth / 2.0) : SvgNumber(ProjectMapPoint(gpsTrail[0]).X);
+    private string MapHomeY => gpsTrail.Count == 0 ? SvgNumber(MapHeight / 2.0) : SvgNumber(ProjectMapPoint(gpsTrail[0]).Y);
+    private string DroneMapX => latestMapPoint is null ? SvgNumber(MapWidth / 2.0) : SvgNumber(ProjectMapPoint(latestMapPoint).X);
+    private string DroneMapY => latestMapPoint is null ? SvgNumber(MapHeight / 2.0) : SvgNumber(ProjectMapPoint(latestMapPoint).Y);
+    private string DroneHeadingX => SvgNumber(ProjectHeadingEnd().X);
+    private string DroneHeadingY => SvgNumber(ProjectHeadingEnd().Y);
+    private string MapRangeLabel => HasMapPosition ? FormattableString.Invariant($"{GetMapVisibleSpanMeters():0.#}m") : "--";
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         _ = PollTelemetryAsync(telemetryCancellation.Token);
+        await LoadSavedRoutesAsync();
+        await SaveLogAsync("Procedure", "Procedure page opened");
     }
 
     private RenderFragment RenderPaletteSection(string title, IReadOnlyList<BlockTemplate> templates) => @<section class="palette-section">
@@ -250,6 +342,413 @@
         missionBlocks.RemoveAll(block => block.Id == id);
     }
 
+    private async Task OptimizeGpsRouteAsync()
+    {
+        if (!CanOptimizeGpsRoute)
+        {
+            return;
+        }
+
+        var gpsSlots = missionBlocks
+            .Select((block, index) => new GpsBlockSlot(index, block))
+            .Where(slot => slot.Block.Kind == BlockKind.GotoGps)
+            .ToList();
+
+        if (gpsSlots.Count < 2)
+        {
+            return;
+        }
+
+        var gpsBlocks = gpsSlots.Select(slot => slot.Block).ToList();
+        var start = GetGpsOptimizationStart(gpsBlocks[0]);
+        var originalDistance = PathDistanceMeters(start, gpsBlocks);
+        var optimizedBlocks = GetOptimizedGpsOrder(gpsBlocks, start);
+
+        for (var index = 0; index < gpsSlots.Count; index++)
+        {
+            missionBlocks[gpsSlots[index].Index] = optimizedBlocks[index];
+        }
+
+        var optimizedDistance = PathDistanceMeters(start, optimizedBlocks);
+        status = FormattableString.Invariant($"GPS route optimized: {originalDistance:0.#}m -> {optimizedDistance:0.#}m");
+        error = "";
+
+        await SaveLogAsync(
+            "Route",
+            "Optimized GPS route",
+            FormattableString.Invariant($"{gpsSlots.Count} waypoints, {originalDistance:0.#}m -> {optimizedDistance:0.#}m"));
+    }
+
+    private GpsCoordinate GetGpsOptimizationStart(MissionBlock firstGpsBlock)
+    {
+        if (telemetry.Latitude is not null && telemetry.Longitude is not null)
+        {
+            return new GpsCoordinate(telemetry.Latitude.Value, telemetry.Longitude.Value);
+        }
+
+        return ToGpsCoordinate(firstGpsBlock);
+    }
+
+    private static List<MissionBlock> GetOptimizedGpsOrder(IReadOnlyList<MissionBlock> blocks, GpsCoordinate start)
+    {
+        if (blocks.Count <= 12)
+        {
+            return GetExactShortestGpsOrder(blocks, start);
+        }
+
+        var order = GetNearestNeighborGpsOrder(blocks, start);
+        ImproveGpsOrderWithTwoOpt(order, start);
+        return order;
+    }
+
+    private static List<MissionBlock> GetExactShortestGpsOrder(IReadOnlyList<MissionBlock> blocks, GpsCoordinate start)
+    {
+        var count = blocks.Count;
+        var stateCount = 1 << count;
+        var distances = BuildGpsDistanceMatrix(blocks);
+        var startDistances = blocks.Select(block => DistanceMeters(start, ToGpsCoordinate(block))).ToArray();
+        var costs = new double[stateCount, count];
+        var parents = new int[stateCount, count];
+
+        for (var mask = 0; mask < stateCount; mask++)
+        {
+            for (var last = 0; last < count; last++)
+            {
+                costs[mask, last] = double.PositiveInfinity;
+                parents[mask, last] = -1;
+            }
+        }
+
+        for (var index = 0; index < count; index++)
+        {
+            costs[1 << index, index] = startDistances[index];
+        }
+
+        for (var mask = 1; mask < stateCount; mask++)
+        {
+            for (var last = 0; last < count; last++)
+            {
+                if ((mask & (1 << last)) == 0)
+                {
+                    continue;
+                }
+
+                var previousMask = mask ^ (1 << last);
+                if (previousMask == 0)
+                {
+                    continue;
+                }
+
+                for (var previous = 0; previous < count; previous++)
+                {
+                    if ((previousMask & (1 << previous)) == 0)
+                    {
+                        continue;
+                    }
+
+                    var candidate = costs[previousMask, previous] + distances[previous, last];
+                    if (candidate < costs[mask, last])
+                    {
+                        costs[mask, last] = candidate;
+                        parents[mask, last] = previous;
+                    }
+                }
+            }
+        }
+
+        var fullMask = stateCount - 1;
+        var bestLast = 0;
+        var bestCost = double.PositiveInfinity;
+
+        for (var last = 0; last < count; last++)
+        {
+            if (costs[fullMask, last] < bestCost)
+            {
+                bestCost = costs[fullMask, last];
+                bestLast = last;
+            }
+        }
+
+        var orderIndices = new int[count];
+        var currentMask = fullMask;
+        var currentLast = bestLast;
+
+        for (var position = count - 1; position >= 0; position--)
+        {
+            orderIndices[position] = currentLast;
+            var previous = parents[currentMask, currentLast];
+            currentMask ^= 1 << currentLast;
+            currentLast = previous;
+        }
+
+        return orderIndices.Select(index => blocks[index]).ToList();
+    }
+
+    private static List<MissionBlock> GetNearestNeighborGpsOrder(IReadOnlyList<MissionBlock> blocks, GpsCoordinate start)
+    {
+        var remaining = Enumerable.Range(0, blocks.Count).ToList();
+        var order = new List<MissionBlock>(blocks.Count);
+        var current = start;
+
+        while (remaining.Count > 0)
+        {
+            var bestRemainingIndex = 0;
+            var bestDistance = double.PositiveInfinity;
+
+            for (var index = 0; index < remaining.Count; index++)
+            {
+                var candidateIndex = remaining[index];
+                var distance = DistanceMeters(current, ToGpsCoordinate(blocks[candidateIndex]));
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    bestRemainingIndex = index;
+                }
+            }
+
+            var nextBlock = blocks[remaining[bestRemainingIndex]];
+            order.Add(nextBlock);
+            current = ToGpsCoordinate(nextBlock);
+            remaining.RemoveAt(bestRemainingIndex);
+        }
+
+        return order;
+    }
+
+    private static void ImproveGpsOrderWithTwoOpt(List<MissionBlock> order, GpsCoordinate start)
+    {
+        var improved = true;
+
+        while (improved)
+        {
+            improved = false;
+
+            for (var first = 0; first < order.Count - 1; first++)
+            {
+                for (var second = first + 1; second < order.Count; second++)
+                {
+                    var previous = first == 0 ? start : ToGpsCoordinate(order[first - 1]);
+                    var firstPoint = ToGpsCoordinate(order[first]);
+                    var secondPoint = ToGpsCoordinate(order[second]);
+                    var after = second + 1 < order.Count ? ToGpsCoordinate(order[second + 1]) : (GpsCoordinate?)null;
+
+                    var currentDistance = DistanceMeters(previous, firstPoint);
+                    var reversedDistance = DistanceMeters(previous, secondPoint);
+
+                    if (after is not null)
+                    {
+                        currentDistance += DistanceMeters(secondPoint, after.Value);
+                        reversedDistance += DistanceMeters(firstPoint, after.Value);
+                    }
+
+                    if (reversedDistance + 0.01 >= currentDistance)
+                    {
+                        continue;
+                    }
+
+                    order.Reverse(first, second - first + 1);
+                    improved = true;
+                }
+            }
+        }
+    }
+
+    private static double[,] BuildGpsDistanceMatrix(IReadOnlyList<MissionBlock> blocks)
+    {
+        var distances = new double[blocks.Count, blocks.Count];
+
+        for (var first = 0; first < blocks.Count; first++)
+        {
+            for (var second = 0; second < blocks.Count; second++)
+            {
+                distances[first, second] = first == second
+                    ? 0.0
+                    : DistanceMeters(ToGpsCoordinate(blocks[first]), ToGpsCoordinate(blocks[second]));
+            }
+        }
+
+        return distances;
+    }
+
+    private static double PathDistanceMeters(GpsCoordinate start, IReadOnlyList<MissionBlock> blocks)
+    {
+        var distance = 0.0;
+        var current = start;
+
+        foreach (var block in blocks)
+        {
+            var next = ToGpsCoordinate(block);
+            distance += DistanceMeters(current, next);
+            current = next;
+        }
+
+        return distance;
+    }
+
+    private static GpsCoordinate ToGpsCoordinate(MissionBlock block)
+    {
+        return new GpsCoordinate(block.Latitude, block.Longitude);
+    }
+
+    private async Task LoadSavedRoutesAsync()
+    {
+        isLoadingRoutes = true;
+
+        try
+        {
+            savedRoutes = (await Storage.GetRoutesAsync()).ToList();
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+            status = "Route DB load failed";
+        }
+        finally
+        {
+            isLoadingRoutes = false;
+        }
+    }
+
+    private async Task LoadRouteSelectionAsync(ChangeEventArgs args)
+    {
+        selectedRouteId = args.Value?.ToString() ?? "";
+        if (!int.TryParse(selectedRouteId, out var routeId))
+        {
+            return;
+        }
+
+        try
+        {
+            var route = await Storage.GetRouteAsync(routeId);
+            if (route is null)
+            {
+                status = "Route not found";
+                return;
+            }
+
+            ApplyRouteJson(route.RouteJson);
+            routeName = route.Name;
+            status = $"Route loaded: {route.Name}";
+            await SaveLogAsync("Route", $"Loaded route '{route.Name}'");
+        }
+        catch (Exception exception)
+        {
+            status = "Route load failed";
+            error = exception.Message;
+            await SaveLogAsync("Route", "Route load failed", exception.Message);
+        }
+    }
+
+    private async Task SaveRouteAsync()
+    {
+        if (isRunning || missionBlocks.Count == 0)
+        {
+            return;
+        }
+
+        isSavingRoute = true;
+        error = "";
+
+        try
+        {
+            var name = string.IsNullOrWhiteSpace(routeName)
+                ? $"Route {DateTime.Now:yyyy-MM-dd HH:mm}"
+                : routeName.Trim();
+
+            var routeId = int.TryParse(selectedRouteId, out var parsedRouteId) ? parsedRouteId : (int?)null;
+            var savedId = await Storage.SaveRouteAsync(routeId, name, SerializeRouteJson());
+
+            routeName = name;
+            selectedRouteId = savedId.ToString();
+            await LoadSavedRoutesAsync();
+            selectedRouteId = savedId.ToString();
+
+            status = $"Route saved: {name}";
+            await SaveLogAsync("Route", $"Saved route '{name}'");
+        }
+        catch (Exception exception)
+        {
+            status = "Route save failed";
+            error = exception.Message;
+            await SaveLogAsync("Route", "Route save failed", exception.Message);
+        }
+        finally
+        {
+            isSavingRoute = false;
+        }
+    }
+
+    private string SerializeRouteJson()
+    {
+        var blocks = missionBlocks.Select(block => new StoredMissionBlock
+        {
+            Kind = block.Kind.ToString(),
+            Altitude = block.Altitude,
+            Speed = block.Speed,
+            Seconds = block.Seconds,
+            Degrees = block.Degrees,
+            Latitude = block.Latitude,
+            Longitude = block.Longitude,
+            LocalX = block.LocalX,
+            LocalY = block.LocalY,
+            Radius = block.Radius,
+            Tolerance = block.Tolerance,
+            TimeoutSeconds = block.TimeoutSeconds,
+            Count = block.Count,
+            Percent = block.Percent,
+            Direction = block.Direction.ToString(),
+        });
+
+        return System.Text.Json.JsonSerializer.Serialize(blocks);
+    }
+
+    private void ApplyRouteJson(string routeJson)
+    {
+        var blocks = System.Text.Json.JsonSerializer.Deserialize<List<StoredMissionBlock>>(routeJson) ?? [];
+
+        missionBlocks.Clear();
+        foreach (var storedBlock in blocks)
+        {
+            if (!Enum.TryParse<BlockKind>(storedBlock.Kind, out var kind))
+            {
+                continue;
+            }
+
+            var block = CreateBlock(kind);
+            block.Altitude = storedBlock.Altitude;
+            block.Speed = storedBlock.Speed;
+            block.Seconds = storedBlock.Seconds;
+            block.Degrees = storedBlock.Degrees;
+            block.Latitude = storedBlock.Latitude;
+            block.Longitude = storedBlock.Longitude;
+            block.LocalX = storedBlock.LocalX;
+            block.LocalY = storedBlock.LocalY;
+            block.Radius = storedBlock.Radius;
+            block.Tolerance = storedBlock.Tolerance;
+            block.TimeoutSeconds = storedBlock.TimeoutSeconds;
+            block.Count = storedBlock.Count;
+            block.Percent = storedBlock.Percent;
+
+            if (Enum.TryParse<FlightDirection>(storedBlock.Direction, out var direction))
+            {
+                block.Direction = direction;
+            }
+
+            missionBlocks.Add(block);
+        }
+    }
+
+    private async Task SaveLogAsync(string category, string message, string? details = null)
+    {
+        try
+        {
+            await Storage.AddLogAsync(category, message, details);
+        }
+        catch
+        {
+        }
+    }
+
     private async Task ToggleConnectionAsync()
     {
         if (isConnecting || isRunning)
@@ -267,6 +766,7 @@
                 await EnsureSuccess("Disconnect", Drone.Disconnect());
                 isConnected = false;
                 status = "Disconnected";
+                await SaveLogAsync("Connection", "Disconnected");
                 return;
             }
 
@@ -274,11 +774,13 @@
             await EnsureSuccess("Connect", Drone.Connect());
             await RefreshTelemetryAsync();
             status = isConnected ? "Connected" : "Connect sent";
+            await SaveLogAsync("Connection", status);
         }
         catch (Exception exception)
         {
             status = isConnected ? "Disconnect failed" : "Connect failed";
             error = exception.Message;
+            await SaveLogAsync("Connection", status, exception.Message);
         }
         finally
         {
@@ -308,11 +810,13 @@
             await EnsureSuccess($"Set mode {newMode}", Drone.SetMode(newMode));
             status = $"Mode set: {newMode}";
             await RefreshTelemetryAsync();
+            await SaveLogAsync("Mode", status);
         }
         catch (Exception exception)
         {
             status = "Mode change failed";
             error = exception.Message;
+            await SaveLogAsync("Mode", $"Mode change failed: {newMode}", exception.Message);
         }
         finally
         {
@@ -332,6 +836,7 @@
         isRunning = true;
         missionCancellation = new CancellationTokenSource();
         var token = missionCancellation.Token;
+        await SaveLogAsync("Mission", "Mission started", SerializeRouteJson());
 
         try
         {
@@ -363,17 +868,20 @@
 
             runningBlockId = null;
             status = "Mission finished";
+            await SaveLogAsync("Mission", "Mission finished");
         }
         catch (OperationCanceledException)
         {
             runningBlockId = null;
             status = "Mission aborted";
+            await SaveLogAsync("Mission", "Mission aborted");
         }
         catch (Exception exception)
         {
             runningBlockId = null;
             status = "Mission failed";
             error = exception.Message;
+            await SaveLogAsync("Mission", "Mission failed", exception.Message);
         }
         finally
         {
@@ -389,6 +897,7 @@
     {
         runningBlockId = block.Id;
         status = $"Running: {BlockTitle(block)}";
+        await SaveLogAsync("Block", $"Started {BlockTitle(block)}");
         await InvokeAsync(StateHasChanged);
 
         switch (block.Kind)
@@ -466,6 +975,7 @@
         }
 
         await RefreshTelemetryAsync();
+        await SaveLogAsync("Block", $"Finished {BlockTitle(block)}");
     }
 
     private async Task TurnAndWaitAsync(MissionBlock block, CancellationToken token)
@@ -617,6 +1127,7 @@
         error = "";
         status = "Abort requested";
         runningBlockId = null;
+        await SaveLogAsync("Mission", "Abort requested");
 
         if (isConnected)
         {
@@ -687,11 +1198,162 @@
             {
                 selectedMode = telemetry.Mode;
             }
+
+            CaptureGpsTrailPoint();
         }
         catch
         {
             isConnected = false;
         }
+    }
+
+    private void CaptureGpsTrailPoint()
+    {
+        if (telemetry.Latitude is null || telemetry.Longitude is null)
+        {
+            return;
+        }
+
+        mapOriginLatitude ??= telemetry.Latitude.Value;
+        mapOriginLongitude ??= telemetry.Longitude.Value;
+        mapOriginLocalX ??= telemetry.LocalX;
+        mapOriginLocalY ??= telemetry.LocalY;
+
+        var (eastMeters, northMeters) = ToMapMeters();
+        var point = new MapTrailPoint(eastMeters, northMeters, telemetry.HeadingDegrees);
+        latestMapPoint = point;
+
+        if (gpsTrail.Count == 0)
+        {
+            gpsTrail.Add(point);
+            return;
+        }
+
+        var distance = DistanceMeters(gpsTrail[^1], point);
+        if (distance >= 0.25)
+        {
+            gpsTrail.Add(point);
+        }
+        else if (gpsTrail.Count > 1)
+        {
+            gpsTrail[^1] = point;
+        }
+
+        while (gpsTrail.Count > 450)
+        {
+            gpsTrail.RemoveAt(1);
+        }
+    }
+
+    private (double EastMeters, double NorthMeters) ToMapMeters()
+    {
+        if (telemetry.LocalX is not null
+            && telemetry.LocalY is not null
+            && mapOriginLocalX is not null
+            && mapOriginLocalY is not null)
+        {
+            return (telemetry.LocalY.Value - mapOriginLocalY.Value, telemetry.LocalX.Value - mapOriginLocalX.Value);
+        }
+
+        var originLatitude = mapOriginLatitude ?? telemetry.Latitude ?? 0.0;
+        var originLongitude = mapOriginLongitude ?? telemetry.Longitude ?? 0.0;
+        var metersPerDegreeLatitude = 111_320.0;
+        var metersPerDegreeLongitude = metersPerDegreeLatitude * Math.Cos(originLatitude * Math.PI / 180.0);
+        var northMeters = ((telemetry.Latitude ?? originLatitude) - originLatitude) * metersPerDegreeLatitude;
+        var eastMeters = ((telemetry.Longitude ?? originLongitude) - originLongitude) * metersPerDegreeLongitude;
+
+        return (eastMeters, northMeters);
+    }
+
+    private (double X, double Y) ProjectMapPoint(MapTrailPoint point)
+    {
+        var bounds = GetMapBounds();
+        var drawableWidth = MapWidth - (MapPadding * 2.0);
+        var drawableHeight = MapHeight - (MapPadding * 2.0);
+        var x = MapPadding + ((point.EastMeters - bounds.MinEast) / (bounds.MaxEast - bounds.MinEast) * drawableWidth);
+        var y = MapHeight - MapPadding - ((point.NorthMeters - bounds.MinNorth) / (bounds.MaxNorth - bounds.MinNorth) * drawableHeight);
+
+        return (x, y);
+    }
+
+    private (double X, double Y) ProjectHeadingEnd()
+    {
+        if (latestMapPoint is null)
+        {
+            return (MapWidth / 2.0, MapHeight / 2.0);
+        }
+
+        var start = ProjectMapPoint(latestMapPoint);
+        var heading = latestMapPoint.HeadingDegrees ?? 0.0;
+        var radians = heading * Math.PI / 180.0;
+
+        return (start.X + Math.Sin(radians) * 18.0, start.Y - Math.Cos(radians) * 18.0);
+    }
+
+    private (double MinEast, double MaxEast, double MinNorth, double MaxNorth) GetMapBounds()
+    {
+        if (gpsTrail.Count == 0)
+        {
+            return (-10.0, 10.0, -10.0, 10.0);
+        }
+
+        var minEast = gpsTrail.Min(point => point.EastMeters);
+        var maxEast = gpsTrail.Max(point => point.EastMeters);
+        var minNorth = gpsTrail.Min(point => point.NorthMeters);
+        var maxNorth = gpsTrail.Max(point => point.NorthMeters);
+
+        ExpandToMapAspectRatio(ref minEast, ref maxEast, ref minNorth, ref maxNorth);
+
+        return (minEast, maxEast, minNorth, maxNorth);
+    }
+
+    private static void ExpandToMapAspectRatio(ref double minEast, ref double maxEast, ref double minNorth, ref double maxNorth)
+    {
+        var eastSpan = Math.Max(maxEast - minEast, 10.0);
+        var northSpan = Math.Max(maxNorth - minNorth, 10.0);
+        var targetRatio = (MapWidth - (MapPadding * 2.0)) / (MapHeight - (MapPadding * 2.0));
+
+        if (eastSpan / northSpan > targetRatio)
+        {
+            northSpan = eastSpan / targetRatio;
+        }
+        else
+        {
+            eastSpan = northSpan * targetRatio;
+        }
+
+        eastSpan *= 1.18;
+        northSpan *= 1.18;
+
+        var eastCenter = (minEast + maxEast) / 2.0;
+        var northCenter = (minNorth + maxNorth) / 2.0;
+        minEast = eastCenter - (eastSpan / 2.0);
+        maxEast = eastCenter + (eastSpan / 2.0);
+        minNorth = northCenter - (northSpan / 2.0);
+        maxNorth = northCenter + (northSpan / 2.0);
+    }
+
+    private double GetMapVisibleSpanMeters()
+    {
+        var bounds = GetMapBounds();
+        return Math.Max(bounds.MaxEast - bounds.MinEast, bounds.MaxNorth - bounds.MinNorth);
+    }
+
+    private static double DistanceMeters(MapTrailPoint first, MapTrailPoint second)
+    {
+        var east = first.EastMeters - second.EastMeters;
+        var north = first.NorthMeters - second.NorthMeters;
+        return Math.Sqrt((east * east) + (north * north));
+    }
+
+    private static string FormatSvgPoint((double X, double Y) point)
+    {
+        return $"{SvgNumber(point.X)},{SvgNumber(point.Y)}";
+    }
+
+    private static string SvgNumber(double value)
+    {
+        return value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
     }
 
     private static string BlockTitle(MissionBlock block)
@@ -829,6 +1491,11 @@
         return 2 * earthRadiusMeters * Math.Asin(Math.Min(1.0, Math.Sqrt(a)));
     }
 
+    private static double DistanceMeters(GpsCoordinate first, GpsCoordinate second)
+    {
+        return DistanceMeters(first.Latitude, first.Longitude, second.Latitude, second.Longitude);
+    }
+
     private static double DegreesToRadians(double degrees) => degrees * Math.PI / 180.0;
 
     public ValueTask DisposeAsync()
@@ -841,6 +1508,27 @@
     }
 
     private sealed record BlockTemplate(BlockKind Kind, string Label);
+    private sealed record GpsBlockSlot(int Index, MissionBlock Block);
+    private readonly record struct GpsCoordinate(double Latitude, double Longitude);
+
+    private sealed class StoredMissionBlock
+    {
+        public string Kind { get; set; } = "";
+        public double Altitude { get; set; }
+        public double Speed { get; set; }
+        public double Seconds { get; set; }
+        public double Degrees { get; set; }
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
+        public double LocalX { get; set; }
+        public double LocalY { get; set; }
+        public double Radius { get; set; }
+        public double Tolerance { get; set; }
+        public double TimeoutSeconds { get; set; }
+        public int Count { get; set; }
+        public int Percent { get; set; }
+        public string Direction { get; set; } = nameof(FlightDirection.Forward);
+    }
 
     private sealed class MissionBlock(BlockKind kind)
     {
@@ -972,6 +1660,11 @@
         }
     }
 
+    private sealed record MapTrailPoint(double EastMeters, double NorthMeters, double? HeadingDegrees);
+
+    private static readonly MarkupString DroneLogoSvg = new("<svg viewBox='0 0 51 51' fill='none' xmlns='http://www.w3.org/2000/svg'><path d='M17.7 17.7 10.4 10.4M33.3 17.7l7.3-7.3M17.7 33.3l-7.3 7.3M33.3 33.3l7.3 7.3' stroke='white' stroke-width='3.4' stroke-linecap='round'/><circle cx='9.2' cy='9.2' r='6.9' stroke='white' stroke-width='3.4'/><circle cx='41.8' cy='9.2' r='6.9' stroke='white' stroke-width='3.4'/><circle cx='9.2' cy='41.8' r='6.9' stroke='white' stroke-width='3.4'/><circle cx='41.8' cy='41.8' r='6.9' stroke='white' stroke-width='3.4'/><rect x='20.1' y='11.8' width='10.8' height='27.4' rx='5.4' stroke='white' stroke-width='3.4'/><path d='M18.1 25.5h14.8' stroke='white' stroke-width='3.4' stroke-linecap='round'/></svg>");
+    private static readonly MarkupString MapNorthLabelSvg = new("<text x='120' y='18' class='gps-north-label'>N</text>");
+    private static readonly MarkupString MapWaitingLabelSvg = new("<text x='120' y='78' class='gps-wait-label'>WAITING FOR GPS</text><text x='120' y='96' class='gps-wait-subtitle'>connect drone to show map</text>");
     private static readonly MarkupString StartBlockSvg = new("<svg class='block-svg' viewBox='0 0 275 48' preserveAspectRatio='none' fill='none' xmlns='http://www.w3.org/2000/svg'><rect width='275' height='40' rx='5' fill='#3A4A69'/><ellipse cx='41.5' cy='34' rx='11.5' ry='14' fill='#3A4A69'/><path d='M270 0C272.761 0 275 2.23858 275 5V35C275 37.7614 272.761 40 270 40H5C2.23858 40 0 37.7614 0 35V5C0 2.23858 2.23858 0 5 0H31.1084C32.9542 4.72958 36.9127 8 41.5 8C46.0873 8 50.0458 4.72958 51.8916 0H270Z' fill='#3A4A69'/></svg>");
     private static readonly MarkupString NormalBlockSvg = new("<svg class='block-svg' viewBox='0 0 275 48' preserveAspectRatio='none' fill='none' xmlns='http://www.w3.org/2000/svg'><ellipse cx='41.5' cy='34' rx='11.5' ry='14' fill='#3A4A69'/><path d='M270 0C272.761 0 275 2.23858 275 5V35C275 37.7614 272.761 40 270 40H5C2.23858 40 0 37.7614 0 35V5C0 2.23858 2.23858 0 5 0H31.1084C32.9542 4.72958 36.9127 8 41.5 8C46.0873 8 50.0458 4.72958 51.8916 0H270Z' fill='#3A4A69'/></svg>");
     private static readonly MarkupString EndBlockSvg = new("<svg class='block-svg' viewBox='0 0 275 40' preserveAspectRatio='none' fill='none' xmlns='http://www.w3.org/2000/svg'><path d='M270 0C272.761 0 275 2.23858 275 5V35C275 37.7614 272.761 40 270 40H5C2.23858 40 0 37.7614 0 35V5C0 2.23858 2.23858 0 5 0H31.1084C32.9542 4.72958 36.9127 8 41.5 8C46.0873 8 50.0458 4.72958 51.8916 0H270Z' fill='#3A4A69'/></svg>");
@@ -991,7 +1684,7 @@
 
     .forge-toolbar {
         display: grid;
-        grid-template-columns: 268px minmax(420px, 1fr) minmax(620px, auto);
+        grid-template-columns: 248px minmax(320px, 1fr) minmax(980px, auto);
         align-items: center;
         gap: 18px;
         background: #202a42;
@@ -1019,7 +1712,7 @@
     .telemetry {
         display: flex;
         justify-content: center;
-        gap: 40px;
+        gap: 36px;
         flex-wrap: wrap;
         color: #ffffff;
         font-size: 1.32rem;
@@ -1034,13 +1727,17 @@
         display: flex;
         align-items: center;
         justify-content: flex-end;
-        gap: 14px;
+        gap: 10px;
     }
 
     .connect-button,
+    .optimize-route-button,
+    .save-route-button,
     .run-button,
     .abort-button,
-    .mode-select {
+    .mode-select,
+    .route-select,
+    .route-name-input {
         height: 34px;
         border-radius: 4px;
         color: #ffffff;
@@ -1049,22 +1746,54 @@
     }
 
     .connect-button,
+    .optimize-route-button,
+    .save-route-button,
     .run-button,
     .abort-button {
-        min-width: 142px;
         border: 0;
     }
 
     .connect-button {
-        min-width: 116px;
+        min-width: 106px;
         background: #3a4a69;
     }
 
+    .save-route-button {
+        min-width: 104px;
+        background: #3a4a69;
+    }
+
+    .optimize-route-button {
+        min-width: 122px;
+        background: #425678;
+    }
+
+    .run-button,
+    .abort-button {
+        min-width: 136px;
+    }
+
+    .route-select {
+        width: 148px;
+    }
+
+    .route-name-input {
+        width: 126px;
+    }
+
+    .route-select,
     .mode-select {
-        width: 132px;
         border: 1px solid #4d5f82;
         background: #26334d;
         padding: 0 10px;
+    }
+
+    .mode-select {
+        width: 124px;
+    }
+
+    .route-name-input::placeholder {
+        color: #b9c4d7;
     }
 
     .run-button {
@@ -1387,12 +2116,155 @@
         background: #4cc27a;
     }
 
+    .gps-map-card {
+        position: fixed;
+        right: 18px;
+        bottom: 62px;
+        z-index: 20;
+        width: 278px;
+        border: 1px solid #4d5f82;
+        border-radius: 6px;
+        background: rgba(32, 42, 66, 0.96);
+        box-shadow: 0 10px 24px rgba(18, 24, 38, 0.22);
+        color: #f7f8fb;
+        padding: 10px;
+        font-size: 0.78rem;
+    }
+
+    .gps-map-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 8px;
+        color: #ffffff;
+        font-size: 0.82rem;
+        font-weight: 800;
+    }
+
+    .gps-map-title strong {
+        max-width: 150px;
+        color: #b9c4d7;
+        font-size: 0.72rem;
+        text-align: right;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .gps-map-frame {
+        height: 176px;
+        overflow: hidden;
+        border: 1px solid #344466;
+        border-radius: 5px;
+        background: #182235;
+    }
+
+    .gps-map {
+        width: 100%;
+        height: 100%;
+        display: block;
+    }
+
+    .gps-axis {
+        stroke: #5e6f90;
+        stroke-width: 0.8;
+        stroke-dasharray: 3 5;
+        opacity: 0.42;
+    }
+
+    .gps-north-label,
+    .gps-wait-label,
+    .gps-wait-subtitle {
+        dominant-baseline: middle;
+        text-anchor: middle;
+        font-family: inherit;
+        font-weight: 800;
+        letter-spacing: 0;
+    }
+
+    .gps-north-label {
+        fill: #9fb4d7;
+        font-size: 9px;
+    }
+
+    .gps-wait-label {
+        fill: #f7f8fb;
+        font-size: 9px;
+    }
+
+    .gps-wait-subtitle {
+        fill: #9fb4d7;
+        font-size: 7px;
+    }
+
+    .gps-home-ring {
+        fill: none;
+        stroke: #f7f8fb;
+        stroke-width: 1.5;
+        opacity: 0.82;
+    }
+
+    .gps-home-dot {
+        fill: #f7f8fb;
+    }
+
+    .gps-trail {
+        fill: none;
+        stroke: #8fd4ff;
+        stroke-width: 3;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+
+    .gps-heading {
+        stroke: #ffffff;
+        stroke-width: 2.2;
+        stroke-linecap: round;
+    }
+
+    .gps-drone-glow {
+        fill: url(#gps-glow);
+    }
+
+    .gps-drone-marker {
+        fill: #8fd4ff;
+        stroke: #ffffff;
+        stroke-width: 2;
+    }
+
+    .gps-map-readout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px 10px;
+        padding-top: 8px;
+    }
+
+    .gps-map-readout span {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        min-width: 0;
+        color: #f7f8fb;
+        font-weight: 800;
+    }
+
+    .gps-map-readout span:nth-child(3) {
+        grid-column: span 2;
+    }
+
+    .gps-map-readout b {
+        color: #b9c4d7;
+        font-weight: 800;
+    }
+
     button:disabled {
         opacity: 0.55;
         cursor: not-allowed;
     }
 
-    @@media (max-width: 1100px) {
+    @@media (max-width: 1600px) {
         .forge-toolbar {
             grid-template-columns: 1fr;
             height: auto;
@@ -1406,6 +2278,12 @@
 
         .forge-page {
             grid-template-rows: auto minmax(560px, 1fr) auto;
+        }
+    }
+
+    @@media (max-width: 1100px) {
+        .mission-actions {
+            flex-wrap: wrap;
         }
     }
 
