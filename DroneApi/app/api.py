@@ -13,6 +13,7 @@ from models.models import (
     TakeoffRequest,
     ThrottleRequest,
     VelocityBodyRequest,
+    VirtualJoystickRequest,
     YawRequest,
 )
 
@@ -138,6 +139,21 @@ def send_velocity_body(request: VelocityBodyRequest) -> dict:
             request.vx,
             request.vy,
             request.vz,
+            request.duration_seconds,
+        )
+        return {"success": True}
+    except Exception as exception:
+        raise HTTPException(status_code=500, detail=str(exception))
+
+
+@app.post("/joystick/virtual")
+def send_virtual_joystick(request: VirtualJoystickRequest) -> dict:
+    try:
+        drone_controller.send_virtual_joystick(
+            request.forward,
+            request.right,
+            request.throttle,
+            request.yaw,
             request.duration_seconds,
         )
         return {"success": True}

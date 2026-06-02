@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 class FlightMode(str, Enum):
     STABILIZE = "STABILIZE"
     GUIDED = "GUIDED"
+    AUTO = "AUTO"
     LAND = "LAND"
     RTL = "RTL"
     LOITER = "LOITER"
@@ -39,6 +40,14 @@ class VelocityBodyRequest(BaseModel):
     vy: float = Field(default=0.0, ge=-1.0, le=1.0)
     vz: float = Field(default=0.0, ge=-1.0, le=1.0)
     duration_seconds: float = Field(default=0.0, ge=0.0)
+
+
+class VirtualJoystickRequest(BaseModel):
+    forward: float = Field(default=0.0, ge=-1.0, le=1.0)
+    right: float = Field(default=0.0, ge=-1.0, le=1.0)
+    throttle: float = Field(default=0.0, ge=-1.0, le=1.0)
+    yaw: float = Field(default=0.0, ge=-1.0, le=1.0)
+    duration_seconds: float = Field(default=0.2, ge=0.0, le=5.0)
 
 
 class LocalPositionRequest(BaseModel):

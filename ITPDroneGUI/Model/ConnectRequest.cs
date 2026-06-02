@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 public class ConnectRequest
 {
     [JsonPropertyName("connection_string")]
-    public string ConnectionString { get; set; } = "tcp:127.0.0.1:5763";
+    public string ConnectionString { get; set; } = "udpin:0.0.0.0:14551";
 
     [JsonPropertyName("baud_rate")]
     public int BaudRate { get; set; } = 57600;
@@ -15,7 +15,7 @@ public class ConnectRequest
 public class ModeRequest
 {
     [JsonPropertyName("mode")]
-    public string Mode { get; set; } = "GUIDED";
+    public string Mode { get; set; } = "STABILIZE";
 }
 
 public class TakeoffRequest

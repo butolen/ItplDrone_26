@@ -23,7 +23,7 @@ public class DroneApiService
     public class ConnectRequest
     {
         [JsonPropertyName("connection_string")]
-        public string ConnectionString { get; set; } = "tcp:127.0.0.1:5763";
+        public string ConnectionString { get; set; } = "udpin:0.0.0.0:14551";
 
         [JsonPropertyName("baud_rate")]
         public int BaudRate { get; set; } = 57600;
@@ -35,7 +35,7 @@ public class DroneApiService
     public class ModeRequest
     {
         [JsonPropertyName("mode")]
-        public string Mode { get; set; } = "GUIDED";
+        public string Mode { get; set; } = "STABILIZE";
     }
 
     public class TakeoffRequest
@@ -66,6 +66,24 @@ public class DroneApiService
 
         [JsonPropertyName("vz")]
         public double Vz { get; set; }
+
+        [JsonPropertyName("duration_seconds")]
+        public double DurationSeconds { get; set; }
+    }
+
+    public class VirtualJoystickRequest
+    {
+        [JsonPropertyName("forward")]
+        public double Forward { get; set; }
+
+        [JsonPropertyName("right")]
+        public double Right { get; set; }
+
+        [JsonPropertyName("throttle")]
+        public double Throttle { get; set; }
+
+        [JsonPropertyName("yaw")]
+        public double Yaw { get; set; }
 
         [JsonPropertyName("duration_seconds")]
         public double DurationSeconds { get; set; }
@@ -183,7 +201,7 @@ public class DroneApiService
     }
 
     public Task<ApiResponse<object>> Connect(
-        string connectionString = "tcp:127.0.0.1:5763",
+        string connectionString = "udpin:0.0.0.0:14551",
         int baudRate = 57600,
         double heartbeatTimeoutSeconds = 10.0)
     {
@@ -240,6 +258,23 @@ public class DroneApiService
             Vx = vx,
             Vy = vy,
             Vz = vz,
+            DurationSeconds = durationSeconds,
+        });
+    }
+
+    public Task<ApiResponse<object>> SendVirtualJoystick(
+        double forward,
+        double right,
+        double throttle,
+        double yaw,
+        double durationSeconds)
+    {
+        return PostAsync<object>("/joystick/virtual", new VirtualJoystickRequest
+        {
+            Forward = forward,
+            Right = right,
+            Throttle = throttle,
+            Yaw = yaw,
             DurationSeconds = durationSeconds,
         });
     }

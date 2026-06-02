@@ -133,10 +133,28 @@ class DroneController:
     def arm(self, timeout: float = 10.0) -> None:
         print("[ARM] Sende ARM")
 
+        self.release_rc_override()
+        self._drain_mavlink_messages(0.2)
+
         with self._lock:
-            self.master.arducopter_arm()
+            self.master.mav.command_long_send(
+                self.master.target_system,
+                self._target_autopilot_component(),
+                mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM,
+                0,
+                1,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+            )
 
         end = time.time() + timeout
+        status_texts: list[str] = []
+        command_ack: str | None = None
+
         while time.time() < end:
             msg = self._recv_status()
 
@@ -144,7 +162,15 @@ class DroneController:
                 continue
 
             if msg.get_type() == "STATUSTEXT":
-                print(f"[FC] {self._mavlink_text_to_str(msg.text)}")
+                text = self._mavlink_text_to_str(msg.text)
+                status_texts.append(text)
+                print(f"[FC] {text}")
+
+            if msg.get_type() == "COMMAND_ACK":
+                command = int(getattr(msg, "command", -1))
+                if command == mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM:
+                    command_ack = self._command_ack_to_str(int(getattr(msg, "result", -1)))
+                    print(f"[ARM] COMMAND_ACK: {command_ack}")
 
             if msg.get_type() == "HEARTBEAT":
                 armed = (
@@ -157,7 +183,14 @@ class DroneController:
                     print("[ARM] OK")
                     return
 
-        raise RuntimeError("Arm failed")
+        details = []
+        if command_ack is not None:
+            details.append(f"ACK={command_ack}")
+        if status_texts:
+            details.append("FC=" + " | ".join(status_texts[-6:]))
+
+        suffix = f": {'; '.join(details)}" if details else ""
+        raise RuntimeError(f"Arm failed{suffix}")
 
     def disarm(self) -> None:
         self.send_velocity_body(0.0, 0.0, 0.0)
@@ -244,6 +277,30 @@ class DroneController:
                 0,
                 0,
             )
+
+    def send_virtual_joystick(
+        self,
+        forward: float,
+        right: float,
+        throttle: float,
+        yaw: float,
+        duration_seconds: float,
+    ) -> None:
+        pitch = int(round(max(-1.0, min(1.0, float(forward))) * 1000))
+        roll = int(round(max(-1.0, min(1.0, float(right))) * 1000))
+        throttle_value = int(round((max(-1.0, min(1.0, float(throttle))) + 1.0) * 500))
+        yaw_value = int(round(max(-1.0, min(1.0, float(yaw))) * 1000))
+
+        if duration_seconds <= 0:
+            self._send_manual_control(pitch, roll, throttle_value, yaw_value)
+            return
+
+        end_time = time.time() + duration_seconds
+        while time.time() < end_time:
+            self._send_manual_control(pitch, roll, throttle_value, yaw_value)
+            time.sleep(0.1)
+
+        self._send_manual_control(0, 0, 500, 0)
 
     def move_body_for_duration(
         self,
@@ -395,6 +452,50 @@ class DroneController:
 
         if release_after:
             self.release_rc_override()
+
+    def _send_guided_velocity_with_yaw_rate(
+        self,
+        vx: float,
+        vy: float,
+        vz: float,
+        yaw_rate_rad_per_sec: float,
+    ) -> None:
+        with self._lock:
+            self.master.mav.set_position_target_local_ned_send(
+                0,
+                self.master.target_system,
+                self.master.target_component,
+                mavutil.mavlink.MAV_FRAME_BODY_NED,
+                1479,
+                0,
+                0,
+                0,
+                vx,
+                vy,
+                vz,
+                0,
+                0,
+                0,
+                0,
+                yaw_rate_rad_per_sec,
+            )
+
+    def _send_manual_control(
+        self,
+        pitch: int,
+        roll: int,
+        throttle: int,
+        yaw: int,
+    ) -> None:
+        with self._lock:
+            self.master.mav.manual_control_send(
+                self.master.target_system,
+                pitch,
+                roll,
+                max(0, min(1000, throttle)),
+                yaw,
+                0,
+            )
 
     def release_rc_override(self) -> None:
         with self._lock:
@@ -687,10 +788,17 @@ class DroneController:
     def _recv_status(self):
         with self._lock:
             return self.master.recv_match(
-                type=["STATUSTEXT", "HEARTBEAT"],
+                type=["STATUSTEXT", "COMMAND_ACK", "HEARTBEAT"],
                 blocking=True,
                 timeout=0.5,
             )
+
+    def _target_autopilot_component(self) -> int:
+        target_component = int(getattr(self.master, "target_component", 0) or 0)
+        if target_component > 0:
+            return target_component
+
+        return mavutil.mavlink.MAV_COMP_ID_AUTOPILOT1
 
     def _is_network_connection(self, connection_string: str) -> bool:
         return connection_string.lower().startswith(("tcp:", "udp:", "udpin:", "udpout:"))
@@ -707,3 +815,21 @@ class DroneController:
         if isinstance(value, bytearray):
             return bytes(value).decode("utf-8", errors="replace").strip("\x00")
         return str(value).strip("\x00")
+
+    @staticmethod
+    def _command_ack_to_str(result: int) -> str:
+        result_names = {}
+        for constant_name, display_name in (
+            ("MAV_RESULT_ACCEPTED", "ACCEPTED"),
+            ("MAV_RESULT_TEMPORARILY_REJECTED", "TEMPORARILY_REJECTED"),
+            ("MAV_RESULT_DENIED", "DENIED"),
+            ("MAV_RESULT_UNSUPPORTED", "UNSUPPORTED"),
+            ("MAV_RESULT_FAILED", "FAILED"),
+            ("MAV_RESULT_IN_PROGRESS", "IN_PROGRESS"),
+            ("MAV_RESULT_CANCELLED", "CANCELLED"),
+        ):
+            constant_value = getattr(mavutil.mavlink, constant_name, None)
+            if constant_value is not None:
+                result_names[int(constant_value)] = display_name
+
+        return result_names.get(result, f"UNKNOWN({result})")

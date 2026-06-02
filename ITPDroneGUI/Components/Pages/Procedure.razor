@@ -132,7 +132,7 @@
 
     private string status = "Ready";
     private string error = "";
-    private string selectedMode = "GUIDED";
+    private string selectedMode = "STABILIZE";
     private Guid? runningBlockId;
     private TelemetrySnapshot telemetry = new();
     private bool isRunning;
@@ -142,9 +142,9 @@
 
     private readonly string[] selectableModes =
     [
-        "GUIDED",
         "STABILIZE",
         "ALT_HOLD",
+        "GUIDED",
         "LOITER",
         "AUTO",
         "RTL",
@@ -394,7 +394,6 @@
         switch (block.Kind)
         {
             case BlockKind.Arm:
-                await EnsureSuccess("Guided mode", Drone.SetMode("GUIDED"));
                 await EnsureSuccess("Arm motors", Drone.Arm());
                 await WaitUntilAsync("armed", () => telemetry.Armed, TimeSpan.FromSeconds(10), token);
                 break;
