@@ -1,21 +1,135 @@
-Wenn nicht installiert:
+DroneForge Start-Anleitung
+==========================
+
+Ziel der Port-Aufteilung:
+- WebGUI/API nutzt MAVLink TCP auf Port 5763.
+- QGroundControl am PC nutzt MAVLink TCP auf Port 5764.
+- QGroundControl am Handy nutzt MAVLink TCP auf Port 5765.
+- Alte MAVLink-Defaults werden nicht mehr verwendet, damit nichts kollidiert.
+
+
+Schnellstart mit Launcher
+-------------------------
+
+In Rider das Projekt DroneLauncher starten oder im Repo-Ordner:
+
+dotnet run --project DroneLauncher
+
+Alternativ direkt im Launcher-Ordner:
+
+cd DroneLauncher
+dotnet run
+
+Der Launcher startet:
+- ArduCopter SITL in WSL
+- die MAVLink TCP-Ausgaenge 5763, 5764 und 5765
+- die Python-API
+- die Blazor-WebGUI
+
+Beenden:
+- Im Launcher-Fenster q druecken oder Ctrl+C verwenden.
+
+Falls du Handy-QGroundControl per TCP nutzen willst, starte Rider/PowerShell einmal als Administrator, damit die Windows-Portproxy-Regeln gesetzt werden koennen.
+
+
+Manueller Start
+---------------
+
+1) WSL: ArduCopter SITL starten
+-------------------------------
+
+cd ~/ardupilot/ArduCopter
+../Tools/autotest/sim_vehicle.py -v ArduCopter -f quad --console --wipe --location=MeinStandort
+
+Wenn die MAVProxy-Konsole offen ist, diese drei TCP-Ausgaenge hinzufuegen:
+
+output add tcpin:0.0.0.0:5763
+output add tcpin:0.0.0.0:5764
+output add tcpin:0.0.0.0:5765
+
+Optional, nur wenn du QGroundControl per UDP-Auto-Connect verwenden willst:
+
+output add 192.168.240.1:14550
+output add 192.168.43.1:14550
+
+Hinweis:
+- 192.168.240.1 ist oft die Windows-Seite vom WSL-Netz.
+- 192.168.43.1 muss durch die echte Handy-IP ersetzt werden, falls du UDP nutzt.
+- Fuer die WebGUI bleibt TCP wichtig: tcp:127.0.0.1:5763.
+
+
+2) Windows PowerShell als Administrator: TCP-Ports von Windows nach WSL weiterleiten
+----------------------------------------------------------------------------------
+
+$wslIp = (wsl hostname -I).Trim().Split()[0]
+
+netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=5763
+netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=5764
+netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=5765
+
+netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=5763 connectaddress=$wslIp connectport=5763
+netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=5764 connectaddress=$wslIp connectport=5764
+netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=5765 connectaddress=$wslIp connectport=5765
+
+netsh advfirewall firewall add rule name="DroneForge MAVLink TCP 5763" dir=in action=allow protocol=TCP localport=5763
+netsh advfirewall firewall add rule name="DroneForge MAVLink TCP 5764" dir=in action=allow protocol=TCP localport=5764
+netsh advfirewall firewall add rule name="DroneForge MAVLink TCP 5765" dir=in action=allow protocol=TCP localport=5765
+
+Die delete-Befehle duerfen Fehler ausgeben, wenn die Regel noch nicht existiert.
+
+
+3) Rider / Windows Terminal: API starten
+----------------------------------------
+
+cd DroneApi
 python -m pip install -r requirements.txt
+python main.py
 
-Setup-Schritte:
+Die API laeuft danach normalerweise auf:
+http://127.0.0.1:8000
 
-In API-Folder: python main.py
-QGroundControl starten (für Simulation)
 
-Im DroneWebGUI Ordner:
-Blazor-Frontend: dotnet run--build Im DroneWebGUI Ordner
+4) Rider / Windows Terminal: WebGUI starten
+-------------------------------------------
 
-Testen:
-WebGUI im Browser öffnen
+cd ITPDroneGUI
+dotnet run --build
 
-cd ~/ardupilot/ArduCopter 
-../Tools/autotest/sim_vehicle.py -v ArduCopter
+Im Browser dann die angezeigte localhost-Adresse oeffnen.
+Die WebGUI verbindet sich mit:
 
-../Tools/autotest/sim_vehicle.py -v ArduCopter -f quad --console --wipe
-output add 192.168.240.1:14551
+tcp:127.0.0.1:5763
 
-Befehle in WebGui senden
+
+5) QGroundControl verbinden
+---------------------------
+
+PC-QGroundControl:
+- Link Type: TCP
+- Host: 127.0.0.1
+- Port: 5764
+
+Handy-QGroundControl:
+- Handy und PC muessen im selben WLAN sein.
+- Link Type: TCP
+- Host: IP-Adresse deines Windows-PCs im WLAN
+- Port: 5765
+
+Deine Windows-PC-IP findest du in PowerShell mit:
+
+ipconfig
+
+
+6) Home-Position in MAVProxy setzen, falls noetig
+-------------------------------------------------
+
+set home 48.411008, 15.593409
+
+
+Port-Merker
+-----------
+
+5763 = WebGUI/API
+5764 = QGroundControl PC
+5765 = QGroundControl Handy
+14550/14551 = nur optionale UDP-Ausgaenge

@@ -15,13 +15,25 @@ public class ConnectRequest
 public class ModeRequest
 {
     [JsonPropertyName("mode")]
-    public string Mode { get; set; } = "GUIDED";
+    public string Mode { get; set; } = "STABILIZE";
 }
 
 public class TakeoffRequest
 {
     [JsonPropertyName("altitude_meters")]
     public double AltitudeMeters { get; set; } = 5.0;
+
+    [JsonPropertyName("arm_first")]
+    public bool ArmFirst { get; set; } = true;
+}
+
+public class ThrottleRequest
+{
+    [JsonPropertyName("throttle_pwm")]
+    public int ThrottlePwm { get; set; } = 1500;
+
+    [JsonPropertyName("duration_seconds")]
+    public double DurationSeconds { get; set; } = 0.2;
 }
 
 public class VelocityBodyRequest

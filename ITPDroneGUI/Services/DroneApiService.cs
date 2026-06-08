@@ -9,7 +9,7 @@ public class DroneApiService
     public DroneApiService(HttpClient httpClient, IConfiguration configuration)
     {
         _httpClient = httpClient;
-        _apiBaseUrl = configuration["DroneApi:BaseUrl"] ?? "http://192.168.240.1:8000";
+        _apiBaseUrl = configuration["DroneApi:BaseUrl"] ?? "http://127.0.0.1:8000";
     }
 
     public class ApiResponse<T>
@@ -35,13 +35,25 @@ public class DroneApiService
     public class ModeRequest
     {
         [JsonPropertyName("mode")]
-        public string Mode { get; set; } = "GUIDED";
+        public string Mode { get; set; } = "STABILIZE";
     }
 
     public class TakeoffRequest
     {
         [JsonPropertyName("altitude_meters")]
         public double AltitudeMeters { get; set; } = 5.0;
+
+        [JsonPropertyName("arm_first")]
+        public bool ArmFirst { get; set; } = true;
+    }
+
+    public class ThrottleRequest
+    {
+        [JsonPropertyName("throttle_pwm")]
+        public int ThrottlePwm { get; set; } = 1500;
+
+        [JsonPropertyName("duration_seconds")]
+        public double DurationSeconds { get; set; } = 0.2;
     }
 
     public class VelocityBodyRequest
@@ -59,6 +71,24 @@ public class DroneApiService
         public double DurationSeconds { get; set; }
     }
 
+    public class VirtualJoystickRequest
+    {
+        [JsonPropertyName("forward")]
+        public double Forward { get; set; }
+
+        [JsonPropertyName("right")]
+        public double Right { get; set; }
+
+        [JsonPropertyName("throttle")]
+        public double Throttle { get; set; }
+
+        [JsonPropertyName("yaw")]
+        public double Yaw { get; set; }
+
+        [JsonPropertyName("duration_seconds")]
+        public double DurationSeconds { get; set; }
+    }
+
     public class LocalPositionRequest
     {
         [JsonPropertyName("x")]
@@ -71,6 +101,18 @@ public class DroneApiService
         public double Z { get; set; }
     }
 
+    public class GlobalPositionRequest
+    {
+        [JsonPropertyName("latitude_deg")]
+        public double LatitudeDeg { get; set; }
+
+        [JsonPropertyName("longitude_deg")]
+        public double LongitudeDeg { get; set; }
+
+        [JsonPropertyName("altitude_meters")]
+        public double AltitudeMeters { get; set; }
+    }
+
     public class YawRequest
     {
         [JsonPropertyName("yaw_degrees")]
@@ -80,7 +122,7 @@ public class DroneApiService
         public double YawSpeedDegPerSec { get; set; } = 20.0;
 
         [JsonPropertyName("is_relative")]
-        public bool IsRelative { get; set; } = false;
+        public bool IsRelative { get; set; }
     }
 
     public class RawCommandRequest
@@ -110,19 +152,11 @@ public class DroneApiService
         public double Param7 { get; set; }
     }
 
-    public async Task<T?> GetAsync<T>(string endpoint)
-    {
-        var response = await _httpClient.GetAsync($"{_apiBaseUrl}{endpoint}");
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<T>();
-    }
-
     public async Task<ApiResponse<T>> PostAsync<T>(string endpoint, object? payload = null)
     {
         try
         {
             var content = JsonContent.Create(payload ?? new { });
-
             var response = await _httpClient.PostAsync($"{_apiBaseUrl}{endpoint}", content);
             var responseBody = await response.Content.ReadAsStringAsync();
 
@@ -132,12 +166,11 @@ public class DroneApiService
                 {
                     Success = false,
                     ErrorMessage = $"Status {(int)response.StatusCode} {response.StatusCode}",
-                    ResponseBody = responseBody
+                    ResponseBody = responseBody,
                 };
             }
 
             T? data = default;
-
             if (!string.IsNullOrWhiteSpace(responseBody))
             {
                 try
@@ -154,7 +187,7 @@ public class DroneApiService
             {
                 Success = true,
                 Data = data,
-                ResponseBody = responseBody
+                ResponseBody = responseBody,
             };
         }
         catch (Exception ex)
@@ -162,35 +195,32 @@ public class DroneApiService
             return new ApiResponse<T>
             {
                 Success = false,
-                ErrorMessage = ex.Message
+                ErrorMessage = ex.Message,
             };
         }
     }
 
-    public Task<ApiResponse<object>> Connect()
+    public Task<ApiResponse<object>> Connect(
+        string connectionString = "udpin:0.0.0.0:14551",
+        int baudRate = 57600,
+        double heartbeatTimeoutSeconds = 10.0)
     {
         return PostAsync<object>("/connect", new ConnectRequest
         {
-            ConnectionString = "udpin:0.0.0.0:14551",
-            BaudRate = 57600,
-            HeartbeatTimeoutSeconds = 10.0
+            ConnectionString = connectionString,
+            BaudRate = baudRate,
+            HeartbeatTimeoutSeconds = heartbeatTimeoutSeconds,
         });
     }
 
-    public Task<ApiResponse<object>> SetGuidedMode()
+    public Task<string> GetStatus()
     {
-        return PostAsync<object>("/mode", new ModeRequest
-        {
-            Mode = "GUIDED"
-        });
+        return _httpClient.GetStringAsync($"{_apiBaseUrl}/status");
     }
 
     public Task<ApiResponse<object>> SetMode(string mode)
     {
-        return PostAsync<object>("/mode", new ModeRequest
-        {
-            Mode = mode
-        });
+        return PostAsync<object>("/mode", new ModeRequest { Mode = mode });
     }
 
     public Task<ApiResponse<object>> Arm()
@@ -203,11 +233,21 @@ public class DroneApiService
         return PostAsync<object>("/disarm");
     }
 
-    public Task<ApiResponse<object>> Takeoff(double altitudeMeters = 5.0)
+    public Task<ApiResponse<object>> Takeoff(double altitudeMeters = 5.0, bool armFirst = true)
     {
         return PostAsync<object>("/takeoff", new TakeoffRequest
         {
-            AltitudeMeters = altitudeMeters
+            AltitudeMeters = altitudeMeters,
+            ArmFirst = armFirst,
+        });
+    }
+
+    public Task<ApiResponse<object>> SendThrottle(int throttlePwm, double durationSeconds)
+    {
+        return PostAsync<object>("/throttle", new ThrottleRequest
+        {
+            ThrottlePwm = throttlePwm,
+            DurationSeconds = durationSeconds,
         });
     }
 
@@ -218,52 +258,59 @@ public class DroneApiService
             Vx = vx,
             Vy = vy,
             Vz = vz,
-            DurationSeconds = durationSeconds
+            DurationSeconds = durationSeconds,
         });
     }
 
-    public Task<ApiResponse<object>> MoveForward()
+    public Task<ApiResponse<object>> SendVirtualJoystick(
+        double forward,
+        double right,
+        double throttle,
+        double yaw,
+        double durationSeconds)
     {
-        return SendVelocity(2, 0, 0, 2);
+        return PostAsync<object>("/joystick/virtual", new VirtualJoystickRequest
+        {
+            Forward = forward,
+            Right = right,
+            Throttle = throttle,
+            Yaw = yaw,
+            DurationSeconds = durationSeconds,
+        });
     }
 
-    public Task<ApiResponse<object>> MoveBack()
+    public Task<ApiResponse<object>> Land()
     {
-        return SendVelocity(-2, 0, 0, 2);
+        return PostAsync<object>("/land");
     }
 
-    public Task<ApiResponse<object>> MoveLeft()
+    public Task<ApiResponse<object>> Rtl()
     {
-        return SendVelocity(0, -2, 0, 2);
+        return PostAsync<object>("/rtl");
     }
 
-    public Task<ApiResponse<object>> MoveRight()
+    public Task<ApiResponse<object>> Disconnect()
     {
-        return SendVelocity(0, 2, 0, 2);
+        return PostAsync<object>("/disconnect");
     }
 
-    public Task<ApiResponse<object>> MoveUp()
-    {
-        return SendVelocity(0, 0, -1, 2);
-    }
-
-    public Task<ApiResponse<object>> MoveDown()
-    {
-        return SendVelocity(0, 0, 1, 2);
-    }
-
-    public Task<ApiResponse<object>> Stop()
-    {
-        return SendVelocity(0, 0, 0, 1);
-    }
-
-    public Task<ApiResponse<object>> GoToLocalPosition(double x, double y, double z)
+    public Task<ApiResponse<object>> GotoLocal(double x, double y, double z)
     {
         return PostAsync<object>("/position/local", new LocalPositionRequest
         {
             X = x,
             Y = y,
-            Z = z
+            Z = z,
+        });
+    }
+
+    public Task<ApiResponse<object>> GotoGlobal(double latitudeDeg, double longitudeDeg, double altitudeMeters)
+    {
+        return PostAsync<object>("/position/global", new GlobalPositionRequest
+        {
+            LatitudeDeg = latitudeDeg,
+            LongitudeDeg = longitudeDeg,
+            AltitudeMeters = altitudeMeters,
         });
     }
 
@@ -273,23 +320,8 @@ public class DroneApiService
         {
             YawDegrees = yawDegrees,
             YawSpeedDegPerSec = yawSpeed,
-            IsRelative = isRelative
+            IsRelative = isRelative,
         });
-    }
-
-    public Task<ApiResponse<object>> Land()
-    {
-        return PostAsync<object>("/land");
-    }
-
-    public Task<ApiResponse<object>> ReturnToLaunch()
-    {
-        return PostAsync<object>("/rtl");
-    }
-
-    public Task<ApiResponse<object>> Disconnect()
-    {
-        return PostAsync<object>("/disconnect");
     }
 
     public Task<ApiResponse<object>> RawCommand(
@@ -311,7 +343,7 @@ public class DroneApiService
             Param4 = param4,
             Param5 = param5,
             Param6 = param6,
-            Param7 = param7
+            Param7 = param7,
         });
     }
 }
