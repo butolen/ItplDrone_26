@@ -56,6 +56,8 @@ def _rc_response(channels: list[int], duration_seconds: float, release_after: bo
 def _db_error(exception: Exception) -> HTTPException:
     if isinstance(exception, KeyError):
         return HTTPException(status_code=404, detail=str(exception))
+    if isinstance(exception, ValueError):
+        return HTTPException(status_code=409, detail=str(exception))
     return HTTPException(status_code=500, detail=str(exception))
 
 
@@ -331,7 +333,7 @@ def database_health() -> dict:
 def create_sequence(request: SequenceCreateRequest) -> dict:
     try:
         commands = [_model_to_dict(command) for command in request.commands]
-        return repository.create_sequence(request.name, commands)
+        return repository.create_sequence(request.name, commands, overwrite=request.overwrite)
     except Exception as exception:
         raise _db_error(exception)
 
@@ -372,10 +374,46 @@ def create_route(request: RouteCreateRequest) -> dict:
         return repository.create_route(
             name=request.name,
             sequence_id=request.sequence_id,
-            points=points
+            points=points,
+            overwrite=request.overwrite
         )
     except Exception as exception:
         raise _db_error(exception)
+
+
+@app.post("/navigation/routes")
+def create_navigation_route(request: RouteCreateRequest) -> dict:
+    try:
+        points = [_model_to_dict(point) for point in request.points]
+        return repository.create_route(
+            name=request.name,
+            sequence_id=None,
+            points=points,
+            overwrite=request.overwrite
+        )
+    except Exception as exception:
+        raise _db_error(exception)
+
+
+@app.get("/navigation/routes")
+def list_navigation_routes() -> list[dict]:
+    try:
+        return repository.list_routes()
+    except Exception as exception:
+        raise _db_error(exception)
+
+
+@app.get("/navigation/routes/{route_id}")
+def get_navigation_route(route_id: str) -> dict:
+    try:
+        return repository.get_route(route_id)
+    except Exception as exception:
+        raise _db_error(exception)
+
+
+@app.post("/navigation/routes/{route_id}/execute-guided")
+def execute_navigation_route(route_id: str, request: ExecuteRouteRequest | None = None) -> dict:
+    return execute_guided_route(route_id, request)
 
 
 @app.get("/routes")

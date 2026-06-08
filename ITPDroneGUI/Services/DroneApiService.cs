@@ -171,6 +171,18 @@ public class DroneApiService
 
         [JsonPropertyName("commands")]
         public List<StoredCommandRequest> Commands { get; set; } = [];
+
+        [JsonPropertyName("overwrite")]
+        public bool Overwrite { get; set; }
+    }
+
+    public class SequenceSummary
+    {
+        [JsonPropertyName("sequence_id")]
+        public string SequenceId { get; set; } = "";
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; } = "";
     }
 
     public class RoutePointRequest
@@ -198,6 +210,9 @@ public class DroneApiService
 
         [JsonPropertyName("points")]
         public List<RoutePointRequest> Points { get; set; } = [];
+
+        [JsonPropertyName("overwrite")]
+        public bool Overwrite { get; set; }
     }
 
     public class RouteSummary
@@ -481,38 +496,49 @@ public class DroneApiService
         });
     }
 
-    public Task<ApiResponse<object>> CreateSequence(string name, List<StoredCommandRequest> commands)
+    public Task<ApiResponse<object>> CreateSequence(string name, List<StoredCommandRequest> commands, bool overwrite = false)
     {
         return PostAsync<object>("/sequences", new SequenceCreateRequest
         {
             Name = name,
             Commands = commands,
+            Overwrite = overwrite,
         });
     }
 
-    public Task<ApiResponse<RouteDetail>> CreateRoute(string name, List<RoutePointRequest> points, string? sequenceId = null)
+    public Task<ApiResponse<List<SequenceSummary>>> GetSequences()
     {
-        return PostAsync<RouteDetail>("/routes", new RouteCreateRequest
+        return GetAsync<List<SequenceSummary>>("/sequences");
+    }
+
+    public Task<ApiResponse<RouteDetail>> CreateRoute(
+        string name,
+        List<RoutePointRequest> points,
+        string? sequenceId = null,
+        bool overwrite = false)
+    {
+        return PostAsync<RouteDetail>("/navigation/routes", new RouteCreateRequest
         {
             Name = name,
             SequenceId = sequenceId,
             Points = points,
+            Overwrite = overwrite,
         });
     }
 
     public Task<ApiResponse<List<RouteSummary>>> GetRoutes()
     {
-        return GetAsync<List<RouteSummary>>("/routes");
+        return GetAsync<List<RouteSummary>>("/navigation/routes");
     }
 
     public Task<ApiResponse<RouteDetail>> GetRoute(string routeId)
     {
-        return GetAsync<RouteDetail>($"/routes/{Uri.EscapeDataString(routeId)}");
+        return GetAsync<RouteDetail>($"/navigation/routes/{Uri.EscapeDataString(routeId)}");
     }
 
     public Task<ApiResponse<object>> ExecuteGuidedRoute(string routeId, double waitSecondsBetweenPoints = 3.0)
     {
-        return PostAsync<object>($"/routes/{Uri.EscapeDataString(routeId)}/execute-guided", new ExecuteRouteRequest
+        return PostAsync<object>($"/navigation/routes/{Uri.EscapeDataString(routeId)}/execute-guided", new ExecuteRouteRequest
         {
             WaitSecondsBetweenPoints = waitSecondsBetweenPoints,
         });

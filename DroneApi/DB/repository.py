@@ -54,16 +54,32 @@ class DroneForgeRepository:
             "collections": sorted(self._db.list_collection_names()),
         }
 
-    def create_sequence(self, name: str, commands: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    def create_sequence(
+        self,
+        name: str,
+        commands: list[dict[str, Any]] | None = None,
+        overwrite: bool = False,
+    ) -> dict[str, Any]:
         self.ensure_schema()
         now = self._now()
-        sequence_id = self.sequences.insert_one(
-            {
-                "name": name,
-                "created_at": now,
-                "updated_at": now,
-            }
-        ).inserted_id
+        existing = self.sequences.find_one({"name": name})
+        if existing is not None:
+            if not overwrite:
+                raise ValueError(f"Sequence already exists: {name}")
+            sequence_id = existing["_id"]
+            self.commands.delete_many({"sequence_id": str(sequence_id)})
+            self.sequences.update_one(
+                {"_id": sequence_id},
+                {"$set": {"name": name, "updated_at": now}},
+            )
+        else:
+            sequence_id = self.sequences.insert_one(
+                {
+                    "name": name,
+                    "created_at": now,
+                    "updated_at": now,
+                }
+            ).inserted_id
 
         for index, command in enumerate(commands or []):
             self.add_command(
@@ -123,20 +139,32 @@ class DroneForgeRepository:
         name: str,
         points: list[dict[str, Any]] | None = None,
         sequence_id: str | None = None,
+        overwrite: bool = False,
     ) -> dict[str, Any]:
         self.ensure_schema()
         if sequence_id:
             self._require_sequence(sequence_id)
 
         now = self._now()
-        route_id = self.routes.insert_one(
-            {
-                "name": name,
-                "sequence_id": sequence_id,
-                "created_at": now,
-                "updated_at": now,
-            }
-        ).inserted_id
+        existing = self.routes.find_one({"name": name})
+        if existing is not None:
+            if not overwrite:
+                raise ValueError(f"Route already exists: {name}")
+            route_id = existing["_id"]
+            self.points.delete_many({"route_id": str(route_id)})
+            self.routes.update_one(
+                {"_id": route_id},
+                {"$set": {"name": name, "sequence_id": sequence_id, "updated_at": now}},
+            )
+        else:
+            route_id = self.routes.insert_one(
+                {
+                    "name": name,
+                    "sequence_id": sequence_id,
+                    "created_at": now,
+                    "updated_at": now,
+                }
+            ).inserted_id
 
         for index, point in enumerate(points or []):
             self.add_point(

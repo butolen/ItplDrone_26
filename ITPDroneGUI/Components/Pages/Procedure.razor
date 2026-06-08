@@ -62,6 +62,36 @@
         <div class="route-count">@SelectedRoutePointLabel</div>
     </section>
 
+    <section class="route-builder">
+        <div class="route-builder-title">
+            <strong>Navigation Points</strong>
+            <span>@routePoints.Count coordinate point@(routePoints.Count == 1 ? "" : "s")</span>
+        </div>
+        <div class="point-entry">
+            <label>Lat <input type="number" @bind="newPointLatitude" step="0.000001" /></label>
+            <label>Lon <input type="number" @bind="newPointLongitude" step="0.000001" /></label>
+            <label>Alt <input type="number" @bind="newPointAltitude" min="0" max="100" step="0.5" /></label>
+            <button class="route-button primary" type="button" @onclick="AddRoutePointFromInputs" disabled="@(isRunning || isRouteBusy)">ADD POINT</button>
+            <button class="route-button" type="button" @onclick="AddCurrentGpsPoint" disabled="@(isRunning || isRouteBusy || telemetry.Latitude is null || telemetry.Longitude is null)">USE GPS</button>
+            <button class="route-button" type="button" @onclick="SyncRoutePointsFromBlocks" disabled="@(isRunning || isRouteBusy)">FROM BLOCKS</button>
+        </div>
+        @if (routePoints.Count > 0)
+        {
+            <div class="point-list">
+                @foreach (var item in routePoints.Select((point, index) => new { point, index }))
+                {
+                    <div class="point-row">
+                        <span class="point-index">@(item.index + 1)</span>
+                        <input type="number" @bind="item.point.Latitude" step="0.000001" disabled="@(isRunning || isRouteBusy)" />
+                        <input type="number" @bind="item.point.Longitude" step="0.000001" disabled="@(isRunning || isRouteBusy)" />
+                        <input type="number" @bind="item.point.AltitudeMeters" min="0" max="100" step="0.5" disabled="@(isRunning || isRouteBusy)" />
+                        <button class="remove-point" type="button" title="Remove point" @onclick="() => RemoveRoutePoint(item.index)" disabled="@(isRunning || isRouteBusy)">x</button>
+                    </div>
+                }
+            </div>
+        }
+    </section>
+
     <main class="forge-workbench">
         <aside class="block-palette">
             @RenderPaletteSection("Movement", movementTemplates)
@@ -245,8 +275,13 @@
     private Guid? runningBlockId;
     private TelemetrySnapshot telemetry = new();
     private List<DroneApiService.RouteSummary> savedRoutes = [];
+    private List<DroneApiService.SequenceSummary> savedProcedures = [];
+    private readonly List<RoutePointDraft> routePoints = [];
     private int selectedRoutePointCount;
     private double routeWaitSeconds = 3.0;
+    private double newPointLatitude = 47.397742;
+    private double newPointLongitude = 8.545594;
+    private double newPointAltitude = 5.0;
     private bool isRunning;
     private bool isConnected;
     private bool isConnecting;
@@ -272,7 +307,7 @@
     private string ArmLabel => telemetry.Armed ? "ARMED" : "UNARMED";
     private string ConnectButtonLabel => isConnecting ? "CONNECTING" : isConnected ? "DISCONNECT" : "CONNECT";
     private bool CanRunMission => isConnected && !isRunning && missionBlocks.Count > 0;
-    private bool CanSaveRoute => !string.IsNullOrWhiteSpace(routeName) && missionBlocks.Any(block => block.Kind == BlockKind.GotoGps);
+    private bool CanSaveRoute => !string.IsNullOrWhiteSpace(routeName) && routePoints.Count > 0;
     private bool CanRunSelectedRoute => isConnected && !isRunning && !isRouteBusy && !string.IsNullOrWhiteSpace(selectedRouteId);
     private string SelectedRoutePointLabel => selectedRoutePointCount <= 0 ? "No points loaded" : $"{selectedRoutePointCount} point{(selectedRoutePointCount == 1 ? "" : "s")}";
     private bool HasMapPosition => latestMapPoint is not null;
@@ -418,6 +453,12 @@
             }
 
             savedRoutes = result.Data ?? [];
+            var sequenceResult = await Drone.GetSequences();
+            if (sequenceResult.Success)
+            {
+                savedProcedures = sequenceResult.Data ?? [];
+            }
+
             status = savedRoutes.Count == 0 ? "No saved routes" : $"Loaded {savedRoutes.Count} route{(savedRoutes.Count == 1 ? "" : "s")}";
         }
         catch (Exception exception)
@@ -445,7 +486,19 @@
         try
         {
             var points = BuildRoutePoints();
-            var result = await Drone.CreateRoute(routeName.Trim(), points);
+            var name = routeName.Trim();
+            var overwrite = false;
+            if (RouteNameExists(name))
+            {
+                overwrite = await Js.InvokeAsync<bool>("confirm", $"Route '{name}' already exists. Override?");
+                if (!overwrite)
+                {
+                    status = "Save route cancelled";
+                    return;
+                }
+            }
+
+            var result = await Drone.CreateRoute(name, points, overwrite: overwrite);
             if (!result.Success || result.Data is null)
             {
                 throw new InvalidOperationException(CombineError(result.ErrorMessage, result.ResponseBody));
@@ -482,13 +535,25 @@
         try
         {
             var name = string.IsNullOrWhiteSpace(routeName) ? $"Procedure {DateTime.Now:HHmmss}" : routeName.Trim();
-            var result = await Drone.CreateSequence(name, BuildProcedureCommands());
+            var overwrite = false;
+            if (ProcedureNameExists(name))
+            {
+                overwrite = await Js.InvokeAsync<bool>("confirm", $"Procedure '{name}' already exists. Override?");
+                if (!overwrite)
+                {
+                    status = "Save procedure cancelled";
+                    return;
+                }
+            }
+
+            var result = await Drone.CreateSequence(name, BuildProcedureCommands(), overwrite);
             if (!result.Success)
             {
                 throw new InvalidOperationException(CombineError(result.ErrorMessage, result.ResponseBody));
             }
 
             status = $"Procedure saved: {name}";
+            await LoadRoutesAsync();
         }
         catch (Exception exception)
         {
@@ -583,16 +648,95 @@
 
     private List<DroneApiService.RoutePointRequest> BuildRoutePoints()
     {
-        return missionBlocks
-            .Where(block => block.Kind == BlockKind.GotoGps)
-            .Select((block, index) => new DroneApiService.RoutePointRequest
+        return routePoints
+            .Select((point, index) => new DroneApiService.RoutePointRequest
+            {
+                Latitude = point.Latitude,
+                Longitude = point.Longitude,
+                AltitudeMeters = point.AltitudeMeters,
+                OrderIndex = index,
+            })
+            .ToList();
+    }
+
+    private bool RouteNameExists(string name)
+    {
+        return savedRoutes.Any(route => string.Equals(route.Name, name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private bool ProcedureNameExists(string name)
+    {
+        return savedProcedures.Any(sequence => string.Equals(sequence.Name, name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void AddRoutePointFromInputs()
+    {
+        routePoints.Add(new RoutePointDraft
+        {
+            Latitude = newPointLatitude,
+            Longitude = newPointLongitude,
+            AltitudeMeters = newPointAltitude,
+        });
+        ApplyRoutePointsToProcedure();
+        selectedRoutePointCount = routePoints.Count;
+    }
+
+    private void AddCurrentGpsPoint()
+    {
+        if (telemetry.Latitude is null || telemetry.Longitude is null)
+        {
+            return;
+        }
+
+        newPointLatitude = telemetry.Latitude.Value;
+        newPointLongitude = telemetry.Longitude.Value;
+        newPointAltitude = Math.Max(0.0, telemetry.AltitudeMeters);
+        AddRoutePointFromInputs();
+    }
+
+    private void SyncRoutePointsFromBlocks()
+    {
+        routePoints.Clear();
+        foreach (var block in missionBlocks.Where(block => block.Kind == BlockKind.GotoGps))
+        {
+            routePoints.Add(new RoutePointDraft
             {
                 Latitude = block.Latitude,
                 Longitude = block.Longitude,
                 AltitudeMeters = block.Altitude,
-                OrderIndex = index,
-            })
-            .ToList();
+            });
+        }
+
+        selectedRoutePointCount = routePoints.Count;
+        status = $"Synced {routePoints.Count} coordinate point{(routePoints.Count == 1 ? "" : "s")}";
+    }
+
+    private void RemoveRoutePoint(int index)
+    {
+        if (index < 0 || index >= routePoints.Count)
+        {
+            return;
+        }
+
+        routePoints.RemoveAt(index);
+        ApplyRoutePointsToProcedure();
+        selectedRoutePointCount = routePoints.Count;
+    }
+
+    private void ApplyRoutePointsToProcedure()
+    {
+        missionBlocks.RemoveAll(block => block.Kind == BlockKind.GotoGps);
+        foreach (var point in routePoints)
+        {
+            missionBlocks.Add(new MissionBlock(BlockKind.GotoGps)
+            {
+                Latitude = point.Latitude,
+                Longitude = point.Longitude,
+                Altitude = point.AltitudeMeters,
+                Radius = 2.0,
+                TimeoutSeconds = 90.0,
+            });
+        }
     }
 
     private List<DroneApiService.StoredCommandRequest> BuildProcedureCommands()
@@ -630,10 +774,17 @@
 
     private void ApplyRouteToProcedure(DroneApiService.RouteDetail route)
     {
+        routePoints.Clear();
         missionBlocks.Clear();
 
         foreach (var point in route.Points.OrderBy(point => point.OrderIndex))
         {
+            routePoints.Add(new RoutePointDraft
+            {
+                Latitude = point.Latitude,
+                Longitude = point.Longitude,
+                AltitudeMeters = point.AltitudeMeters,
+            });
             missionBlocks.Add(new MissionBlock(BlockKind.GotoGps)
             {
                 Latitude = point.Latitude,
@@ -1424,6 +1575,13 @@
     private sealed record BlockTemplate(BlockKind Kind, string Label);
     private sealed record MapTrailPoint(double EastMeters, double NorthMeters, double? HeadingDegrees);
 
+    private sealed class RoutePointDraft
+    {
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
+        public double AltitudeMeters { get; set; }
+    }
+
     private sealed class MissionBlock(BlockKind kind)
     {
         public Guid Id { get; } = Guid.NewGuid();
@@ -1567,7 +1725,7 @@
         background: #d4d4d9;
         color: #f7f8fb;
         display: grid;
-        grid-template-rows: 62px 58px minmax(560px, 1fr) auto;
+        grid-template-rows: 62px 58px auto minmax(520px, 1fr) auto;
         overflow: hidden;
     }
 
@@ -1689,6 +1847,93 @@
         font-weight: 800;
         text-overflow: ellipsis;
         white-space: nowrap;
+    }
+
+    .route-builder {
+        display: grid;
+        grid-template-columns: 220px minmax(0, 1fr);
+        gap: 14px;
+        align-items: start;
+        background: #202a42;
+        border-bottom: 1px solid #303b58;
+        padding: 10px 24px;
+    }
+
+    .route-builder-title {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        color: #ffffff;
+        font-size: 0.84rem;
+        font-weight: 800;
+    }
+
+    .route-builder-title span {
+        color: #b9c4d7;
+        font-size: 0.74rem;
+    }
+
+    .point-entry {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(110px, 1fr)) repeat(3, auto);
+        gap: 8px;
+        align-items: center;
+    }
+
+    .point-entry label {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: center;
+        gap: 6px;
+        color: #b9c4d7;
+        font-size: 0.72rem;
+        font-weight: 800;
+        text-transform: uppercase;
+    }
+
+    .point-entry input,
+    .point-row input {
+        min-width: 0;
+        height: 30px;
+        border: 1px solid #4d5f82;
+        border-radius: 4px;
+        background: #1b2436;
+        color: #ffffff;
+        padding: 0 8px;
+        font-size: 0.8rem;
+        font-weight: 700;
+    }
+
+    .point-list {
+        grid-column: 2;
+        display: grid;
+        gap: 6px;
+        max-height: 132px;
+        overflow: auto;
+    }
+
+    .point-row {
+        display: grid;
+        grid-template-columns: 32px repeat(3, minmax(110px, 1fr)) 30px;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .point-index {
+        color: #b9c4d7;
+        font-size: 0.8rem;
+        font-weight: 900;
+        text-align: right;
+    }
+
+    .remove-point {
+        width: 30px;
+        height: 30px;
+        border: 0;
+        border-radius: 4px;
+        background: #303a59;
+        color: #ffffff;
+        font-weight: 900;
     }
 
     .connect-button,
@@ -2268,6 +2513,19 @@
             grid-template-columns: 1fr 1fr;
             height: auto;
             padding: 10px 16px;
+        }
+
+        .route-builder {
+            grid-template-columns: 1fr;
+            padding: 10px 16px;
+        }
+
+        .point-entry {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .point-list {
+            grid-column: 1;
         }
 
         .telemetry,

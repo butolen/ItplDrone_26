@@ -103,6 +103,7 @@ class StoredCommandRequest(BaseModel):
 class SequenceCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=45)
     commands: list[StoredCommandRequest] = Field(default_factory=list)
+    overwrite: bool = False
 
 
 class RoutePointRequest(BaseModel):
@@ -117,6 +118,7 @@ class RouteCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=45)
     sequence_id: str | None = None
     points: list[RoutePointRequest] = Field(default_factory=list)
+    overwrite: bool = False
 
 
 class ExecuteRouteRequest(BaseModel):
