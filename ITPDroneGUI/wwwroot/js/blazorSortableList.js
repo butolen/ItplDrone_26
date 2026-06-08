@@ -1,8 +1,7 @@
-(() => {
 const states = new WeakMap();
 let activeDrag = null;
 
-function initialize(container, dotNet, options) {
+export function initialize(container, dotNet, options) {
     if (!container) {
         return;
     }
@@ -40,7 +39,7 @@ function initialize(container, dotNet, options) {
     states.set(container, state);
 }
 
-function dispose(container) {
+export function dispose(container) {
     const state = states.get(container);
     if (!state) {
         return;
@@ -292,8 +291,3 @@ function isInteractive(target) {
     return Boolean(target.closest("input, select, textarea, button, a, label, [contenteditable='true']"));
 }
 
-window.droneForgeSortableList = {
-    initialize,
-    dispose,
-};
-})();

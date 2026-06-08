@@ -1,8 +1,12 @@
 {
   "version": 2,
-  "dgSpecHash": "ebmGio76+3Q=",
+  "dgSpecHash": "iWWztaCIwHg=",
   "success": true,
-  "projectFilePath": "C:\\Users\\mathi\\Desktop\\MavlinkSender\\ITPDroneGUI\\ITPDroneGUI.csproj",
-  "expectedPackageFiles": [],
+  "projectFilePath": "C:\\Users\\manue\\Documents\\GitHub\\ItplDrone_26\\ITPDroneGUI\\ITPDroneGUI.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\manue\\.nuget\\packages\\microsoft.netcore.app.ref\\9.0.16\\microsoft.netcore.app.ref.9.0.16.nupkg.sha512",
+    "C:\\Users\\manue\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\9.0.16\\microsoft.windowsdesktop.app.ref.9.0.16.nupkg.sha512",
+    "C:\\Users\\manue\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\9.0.16\\microsoft.aspnetcore.app.ref.9.0.16.nupkg.sha512"
+  ],
   "logs": []
 }

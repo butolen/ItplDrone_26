@@ -23,6 +23,7 @@
     private readonly string listId = $"sortable-{Guid.NewGuid():N}";
     private ElementReference container;
     private DotNetObjectReference<SortableList<TItem>>? dotNetReference;
+    private IJSObjectReference? module;
     private bool jsInitialized;
 
     [Parameter, EditorRequired]
@@ -64,8 +65,9 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         dotNetReference ??= DotNetObjectReference.Create(this);
+        module ??= await JS.InvokeAsync<IJSObjectReference>("import", "/js/blazorSortableList.js?v=20260608-1");
 
-        await JS.InvokeVoidAsync("droneForgeSortableList.initialize", container, dotNetReference, new
+        await module.InvokeVoidAsync("initialize", container, dotNetReference, new
         {
             listId,
             disabled = Disabled,
@@ -104,12 +106,26 @@
         {
             try
             {
-                await JS.InvokeVoidAsync("droneForgeSortableList.dispose", container);
+                if (module is not null)
+                {
+                    await module.InvokeVoidAsync("dispose", container);
+                }
             }
             catch (JSDisconnectedException)
             {
             }
             catch (InvalidOperationException)
+            {
+            }
+        }
+
+        if (module is not null)
+        {
+            try
+            {
+                await module.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
             {
             }
         }

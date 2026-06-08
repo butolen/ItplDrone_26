@@ -157,3 +157,14 @@ C:\Users\mathi\Desktop\MavlinkSender\ITPDroneGUI\obj\Debug\net9.0\refint\ITPDron
 C:\Users\mathi\Desktop\MavlinkSender\ITPDroneGUI\obj\Debug\net9.0\ITPDroneGUI.pdb
 C:\Users\mathi\Desktop\MavlinkSender\ITPDroneGUI\obj\Debug\net9.0\ITPDroneGUI.genruntimeconfig.cache
 C:\Users\mathi\Desktop\MavlinkSender\ITPDroneGUI\obj\Debug\net9.0\ref\ITPDroneGUI.dll
+C:\Users\manue\Documents\GitHub\ItplDrone_26\ITPDroneGUI\obj\Debug\net9.0\compressed\d6w072eypv-{0}-kfd1920fkz-kfd1920fkz.gz
+C:\Users\manue\Documents\GitHub\ItplDrone_26\ITPDroneGUI\bin\CodexBuild\appsettings.Development.json
+C:\Users\manue\Documents\GitHub\ItplDrone_26\ITPDroneGUI\bin\CodexBuild\appsettings.json
+C:\Users\manue\Documents\GitHub\ItplDrone_26\ITPDroneGUI\bin\CodexBuild\ITPDroneGUI.staticwebassets.runtime.json
+C:\Users\manue\Documents\GitHub\ItplDrone_26\ITPDroneGUI\bin\CodexBuild\ITPDroneGUI.staticwebassets.endpoints.json
+C:\Users\manue\Documents\GitHub\ItplDrone_26\ITPDroneGUI\bin\CodexBuild\ITPDroneGUI.deps.json
+C:\Users\manue\Documents\GitHub\ItplDrone_26\ITPDroneGUI\bin\CodexBuild\ITPDroneGUI.runtimeconfig.json
+C:\Users\manue\Documents\GitHub\ItplDrone_26\ITPDroneGUI\bin\CodexBuild\ITPDroneGUI.dll
+C:\Users\manue\Documents\GitHub\ItplDrone_26\ITPDroneGUI\bin\CodexBuild\ITPDroneGUI.pdb
+C:\Users\manue\Documents\GitHub\ItplDrone_26\ITPDroneGUI\obj\Debug\net9.0\compressed\gnyl75k55e-{0}-h2z6l2xm1i-h2z6l2xm1i.gz
+C:\Users\manue\Documents\GitHub\ItplDrone_26\ITPDroneGUI\obj\Debug\net9.0\compressed\79vrilfnmp-{0}-tz9kiah4jo-tz9kiah4jo.gz
