@@ -36,6 +36,32 @@
         </div>
     </header>
 
+    <section class="route-panel">
+        <div class="route-field">
+            <span>Name</span>
+            <input type="text" @bind="routeName" maxlength="45" disabled="@(isRunning || isRouteBusy)" />
+        </div>
+        <button class="route-button primary" type="button" @onclick="SaveRouteAsync" disabled="@(isRunning || isRouteBusy || !CanSaveRoute)">SAVE ROUTE</button>
+        <button class="route-button" type="button" @onclick="SaveProcedureAsync" disabled="@(isRunning || isRouteBusy || missionBlocks.Count == 0)">SAVE PROCEDURE</button>
+        <div class="route-field select">
+            <span>Route</span>
+            <select value="@selectedRouteId" @onchange="SelectRouteAsync" disabled="@(isRunning || isRouteBusy)">
+                <option value="">Select route</option>
+                @foreach (var route in savedRoutes)
+                {
+                    <option value="@route.RouteId">@route.Name</option>
+                }
+            </select>
+        </div>
+        <button class="route-button" type="button" @onclick="LoadSelectedRouteAsync" disabled="@(isRunning || isRouteBusy || string.IsNullOrWhiteSpace(selectedRouteId))">LOAD</button>
+        <button class="route-button guided" type="button" @onclick="RunSelectedRouteGuidedAsync" disabled="@(!CanRunSelectedRoute)">FLY ROUTE</button>
+        <div class="route-field compact">
+            <span>Wait</span>
+            <input type="number" @bind="routeWaitSeconds" min="0" max="30" step="0.1" disabled="@(isRunning || isRouteBusy)" />
+        </div>
+        <div class="route-count">@SelectedRoutePointLabel</div>
+    </section>
+
     <main class="forge-workbench">
         <aside class="block-palette">
             @RenderPaletteSection("Movement", movementTemplates)
@@ -214,12 +240,18 @@
     private string status = "Ready";
     private string error = "";
     private string selectedMode = "STABILIZE";
+    private string routeName = "New route";
+    private string selectedRouteId = "";
     private Guid? runningBlockId;
     private TelemetrySnapshot telemetry = new();
+    private List<DroneApiService.RouteSummary> savedRoutes = [];
+    private int selectedRoutePointCount;
+    private double routeWaitSeconds = 3.0;
     private bool isRunning;
     private bool isConnected;
     private bool isConnecting;
     private bool isChangingMode;
+    private bool isRouteBusy;
 
     private readonly string[] selectableModes =
     [
@@ -240,6 +272,9 @@
     private string ArmLabel => telemetry.Armed ? "ARMED" : "UNARMED";
     private string ConnectButtonLabel => isConnecting ? "CONNECTING" : isConnected ? "DISCONNECT" : "CONNECT";
     private bool CanRunMission => isConnected && !isRunning && missionBlocks.Count > 0;
+    private bool CanSaveRoute => !string.IsNullOrWhiteSpace(routeName) && missionBlocks.Any(block => block.Kind == BlockKind.GotoGps);
+    private bool CanRunSelectedRoute => isConnected && !isRunning && !isRouteBusy && !string.IsNullOrWhiteSpace(selectedRouteId);
+    private string SelectedRoutePointLabel => selectedRoutePointCount <= 0 ? "No points loaded" : $"{selectedRoutePointCount} point{(selectedRoutePointCount == 1 ? "" : "s")}";
     private bool HasMapPosition => latestMapPoint is not null;
     private string MapPathPoints => gpsTrail.Count < 2 ? string.Empty : string.Join(" ", gpsTrail.Select(point => FormatSvgPoint(ProjectMapPoint(point))));
     private string MapHomeX => gpsTrail.Count == 0 ? SvgNumber(MapWidth / 2.0) : SvgNumber(ProjectMapPoint(gpsTrail[0]).X);
@@ -253,6 +288,7 @@
     protected override void OnInitialized()
     {
         _ = PollTelemetryAsync(telemetryCancellation.Token);
+        _ = LoadRoutesAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -366,6 +402,247 @@
         }
 
         missionBlocks.RemoveAll(block => block.Id == id);
+    }
+
+    private async Task LoadRoutesAsync()
+    {
+        isRouteBusy = true;
+        error = "";
+
+        try
+        {
+            var result = await Drone.GetRoutes();
+            if (!result.Success)
+            {
+                throw new InvalidOperationException(CombineError(result.ErrorMessage, result.ResponseBody));
+            }
+
+            savedRoutes = result.Data ?? [];
+            status = savedRoutes.Count == 0 ? "No saved routes" : $"Loaded {savedRoutes.Count} route{(savedRoutes.Count == 1 ? "" : "s")}";
+        }
+        catch (Exception exception)
+        {
+            status = "Route list failed";
+            error = exception.Message;
+        }
+        finally
+        {
+            isRouteBusy = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task SaveRouteAsync()
+    {
+        if (!CanSaveRoute)
+        {
+            return;
+        }
+
+        isRouteBusy = true;
+        error = "";
+
+        try
+        {
+            var points = BuildRoutePoints();
+            var result = await Drone.CreateRoute(routeName.Trim(), points);
+            if (!result.Success || result.Data is null)
+            {
+                throw new InvalidOperationException(CombineError(result.ErrorMessage, result.ResponseBody));
+            }
+
+            selectedRouteId = result.Data.RouteId;
+            selectedRoutePointCount = result.Data.Points.Count;
+            await LoadRoutesAsync();
+            selectedRouteId = result.Data.RouteId;
+            selectedRoutePointCount = result.Data.Points.Count;
+            status = $"Route saved: {result.Data.Name}";
+        }
+        catch (Exception exception)
+        {
+            status = "Save route failed";
+            error = exception.Message;
+        }
+        finally
+        {
+            isRouteBusy = false;
+        }
+    }
+
+    private async Task SaveProcedureAsync()
+    {
+        if (missionBlocks.Count == 0)
+        {
+            return;
+        }
+
+        isRouteBusy = true;
+        error = "";
+
+        try
+        {
+            var name = string.IsNullOrWhiteSpace(routeName) ? $"Procedure {DateTime.Now:HHmmss}" : routeName.Trim();
+            var result = await Drone.CreateSequence(name, BuildProcedureCommands());
+            if (!result.Success)
+            {
+                throw new InvalidOperationException(CombineError(result.ErrorMessage, result.ResponseBody));
+            }
+
+            status = $"Procedure saved: {name}";
+        }
+        catch (Exception exception)
+        {
+            status = "Save procedure failed";
+            error = exception.Message;
+        }
+        finally
+        {
+            isRouteBusy = false;
+        }
+    }
+
+    private async Task SelectRouteAsync(ChangeEventArgs args)
+    {
+        selectedRouteId = args.Value?.ToString() ?? "";
+        selectedRoutePointCount = 0;
+
+        if (!string.IsNullOrWhiteSpace(selectedRouteId))
+        {
+            await LoadSelectedRouteAsync();
+        }
+    }
+
+    private async Task LoadSelectedRouteAsync()
+    {
+        if (string.IsNullOrWhiteSpace(selectedRouteId))
+        {
+            return;
+        }
+
+        isRouteBusy = true;
+        error = "";
+
+        try
+        {
+            var result = await Drone.GetRoute(selectedRouteId);
+            if (!result.Success || result.Data is null)
+            {
+                throw new InvalidOperationException(CombineError(result.ErrorMessage, result.ResponseBody));
+            }
+
+            ApplyRouteToProcedure(result.Data);
+            routeName = result.Data.Name;
+            selectedRoutePointCount = result.Data.Points.Count;
+            status = $"Route loaded: {result.Data.Name}";
+        }
+        catch (Exception exception)
+        {
+            status = "Load route failed";
+            error = exception.Message;
+        }
+        finally
+        {
+            isRouteBusy = false;
+        }
+    }
+
+    private async Task RunSelectedRouteGuidedAsync()
+    {
+        if (!CanRunSelectedRoute)
+        {
+            return;
+        }
+
+        isRunning = true;
+        isRouteBusy = true;
+        error = "";
+        status = "Guided route running";
+
+        try
+        {
+            var result = await Drone.ExecuteGuidedRoute(selectedRouteId, routeWaitSeconds);
+            if (!result.Success)
+            {
+                throw new InvalidOperationException(CombineError(result.ErrorMessage, result.ResponseBody));
+            }
+
+            status = "Guided route sent";
+            await RefreshTelemetryAsync();
+        }
+        catch (Exception exception)
+        {
+            status = "Guided route failed";
+            error = exception.Message;
+        }
+        finally
+        {
+            isRunning = false;
+            isRouteBusy = false;
+        }
+    }
+
+    private List<DroneApiService.RoutePointRequest> BuildRoutePoints()
+    {
+        return missionBlocks
+            .Where(block => block.Kind == BlockKind.GotoGps)
+            .Select((block, index) => new DroneApiService.RoutePointRequest
+            {
+                Latitude = block.Latitude,
+                Longitude = block.Longitude,
+                AltitudeMeters = block.Altitude,
+                OrderIndex = index,
+            })
+            .ToList();
+    }
+
+    private List<DroneApiService.StoredCommandRequest> BuildProcedureCommands()
+    {
+        return missionBlocks
+            .Select((block, index) => new DroneApiService.StoredCommandRequest
+            {
+                Command = block.Kind.ToString(),
+                OrderIndex = index,
+                Parameters = BuildProcedureParameters(block),
+            })
+            .ToList();
+    }
+
+    private static Dictionary<string, object?> BuildProcedureParameters(MissionBlock block)
+    {
+        return new Dictionary<string, object?>
+        {
+            ["altitude_meters"] = block.Altitude,
+            ["speed"] = block.Speed,
+            ["seconds"] = block.Seconds,
+            ["degrees"] = block.Degrees,
+            ["latitude"] = block.Latitude,
+            ["longitude"] = block.Longitude,
+            ["local_x"] = block.LocalX,
+            ["local_y"] = block.LocalY,
+            ["radius"] = block.Radius,
+            ["tolerance"] = block.Tolerance,
+            ["timeout_seconds"] = block.TimeoutSeconds,
+            ["count"] = block.Count,
+            ["percent"] = block.Percent,
+            ["direction"] = block.Direction.ToString(),
+        };
+    }
+
+    private void ApplyRouteToProcedure(DroneApiService.RouteDetail route)
+    {
+        missionBlocks.Clear();
+
+        foreach (var point in route.Points.OrderBy(point => point.OrderIndex))
+        {
+            missionBlocks.Add(new MissionBlock(BlockKind.GotoGps)
+            {
+                Latitude = point.Latitude,
+                Longitude = point.Longitude,
+                Altitude = point.AltitudeMeters,
+                Radius = 2.0,
+                TimeoutSeconds = 90.0,
+            });
+        }
     }
 
     private async Task ToggleConnectionAsync()
@@ -1290,7 +1567,7 @@
         background: #d4d4d9;
         color: #f7f8fb;
         display: grid;
-        grid-template-rows: 62px minmax(560px, 1fr) auto;
+        grid-template-rows: 62px 58px minmax(560px, 1fr) auto;
         overflow: hidden;
     }
 
@@ -1340,6 +1617,78 @@
         align-items: center;
         justify-content: flex-end;
         gap: 14px;
+    }
+
+    .route-panel {
+        display: grid;
+        grid-template-columns: minmax(180px, 280px) 116px 142px minmax(220px, 320px) 92px 122px 92px 120px;
+        align-items: center;
+        gap: 10px;
+        background: #26334d;
+        border-bottom: 1px solid #303b58;
+        padding: 8px 24px;
+        color: #dce5f4;
+    }
+
+    .route-field {
+        min-width: 0;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: center;
+        gap: 8px;
+        color: #b9c4d7;
+        font-size: 0.72rem;
+        font-weight: 800;
+        text-transform: uppercase;
+    }
+
+    .route-field.select {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .route-field.compact {
+        grid-template-columns: auto 1fr;
+    }
+
+    .route-field input,
+    .route-field select {
+        min-width: 0;
+        height: 30px;
+        border: 1px solid #4d5f82;
+        border-radius: 4px;
+        background: #1b2436;
+        color: #ffffff;
+        padding: 0 9px;
+        font-size: 0.82rem;
+        font-weight: 700;
+    }
+
+    .route-button {
+        height: 30px;
+        border: 0;
+        border-radius: 4px;
+        background: #3a4a69;
+        color: #ffffff;
+        font-size: 0.72rem;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .route-button.primary {
+        background: #5c7893;
+    }
+
+    .route-button.guided {
+        background: #496f5f;
+    }
+
+    .route-count {
+        overflow: hidden;
+        color: #b9c4d7;
+        font-size: 0.76rem;
+        font-weight: 800;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .connect-button,
@@ -1913,6 +2262,12 @@
             grid-template-columns: 1fr;
             height: auto;
             padding: 12px 16px;
+        }
+
+        .route-panel {
+            grid-template-columns: 1fr 1fr;
+            height: auto;
+            padding: 10px 16px;
         }
 
         .telemetry,

@@ -26,9 +26,8 @@ class ModeRequest(BaseModel):
 
 
 class TakeoffRequest(BaseModel):
-    throttle_pwm: int = Field(default=1600, ge=1000, le=2000)
-    duration_seconds: float = Field(default=2.0, ge=0.0, le=30.0)
-    arm_first: bool = False
+    altitude_meters: float = Field(default=5.0, ge=1.0, le=100.0)
+    arm_first: bool = True
 
 
 class ThrottleRequest(BaseModel):
@@ -121,4 +120,4 @@ class RouteCreateRequest(BaseModel):
 
 
 class ExecuteRouteRequest(BaseModel):
-    wait_seconds_between_points: float = Field(default=0.2, ge=0.0, le=10.0)
+    wait_seconds_between_points: float = Field(default=3.0, ge=0.0, le=30.0)

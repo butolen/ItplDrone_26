@@ -152,6 +152,99 @@ public class DroneApiService
         public double Param7 { get; set; }
     }
 
+    public class StoredCommandRequest
+    {
+        [JsonPropertyName("command")]
+        public string Command { get; set; } = "";
+
+        [JsonPropertyName("order_index")]
+        public int OrderIndex { get; set; }
+
+        [JsonPropertyName("parameters")]
+        public Dictionary<string, object?> Parameters { get; set; } = [];
+    }
+
+    public class SequenceCreateRequest
+    {
+        [JsonPropertyName("name")]
+        public string Name { get; set; } = "";
+
+        [JsonPropertyName("commands")]
+        public List<StoredCommandRequest> Commands { get; set; } = [];
+    }
+
+    public class RoutePointRequest
+    {
+        [JsonPropertyName("latitude")]
+        public double Latitude { get; set; }
+
+        [JsonPropertyName("longitude")]
+        public double Longitude { get; set; }
+
+        [JsonPropertyName("altitude_meters")]
+        public double AltitudeMeters { get; set; }
+
+        [JsonPropertyName("order_index")]
+        public int OrderIndex { get; set; }
+    }
+
+    public class RouteCreateRequest
+    {
+        [JsonPropertyName("name")]
+        public string Name { get; set; } = "";
+
+        [JsonPropertyName("sequence_id")]
+        public string? SequenceId { get; set; }
+
+        [JsonPropertyName("points")]
+        public List<RoutePointRequest> Points { get; set; } = [];
+    }
+
+    public class RouteSummary
+    {
+        [JsonPropertyName("route_id")]
+        public string RouteId { get; set; } = "";
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; } = "";
+
+        [JsonPropertyName("sequence_id")]
+        public string? SequenceId { get; set; }
+    }
+
+    public class RoutePoint
+    {
+        [JsonPropertyName("point_id")]
+        public string PointId { get; set; } = "";
+
+        [JsonPropertyName("route_id")]
+        public string RouteId { get; set; } = "";
+
+        [JsonPropertyName("latitude")]
+        public double Latitude { get; set; }
+
+        [JsonPropertyName("longitude")]
+        public double Longitude { get; set; }
+
+        [JsonPropertyName("altitude_meters")]
+        public double AltitudeMeters { get; set; }
+
+        [JsonPropertyName("order_index")]
+        public int OrderIndex { get; set; }
+    }
+
+    public class RouteDetail : RouteSummary
+    {
+        [JsonPropertyName("points")]
+        public List<RoutePoint> Points { get; set; } = [];
+    }
+
+    public class ExecuteRouteRequest
+    {
+        [JsonPropertyName("wait_seconds_between_points")]
+        public double WaitSecondsBetweenPoints { get; set; } = 3.0;
+    }
+
     public async Task<ApiResponse<T>> PostAsync<T>(string endpoint, object? payload = null)
     {
         try
@@ -181,6 +274,46 @@ public class DroneApiService
                 {
                     data = default;
                 }
+            }
+
+            return new ApiResponse<T>
+            {
+                Success = true,
+                Data = data,
+                ResponseBody = responseBody,
+            };
+        }
+        catch (Exception ex)
+        {
+            return new ApiResponse<T>
+            {
+                Success = false,
+                ErrorMessage = ex.Message,
+            };
+        }
+    }
+
+    public async Task<ApiResponse<T>> GetAsync<T>(string endpoint)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"{_apiBaseUrl}{endpoint}");
+            var responseBody = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new ApiResponse<T>
+                {
+                    Success = false,
+                    ErrorMessage = $"Status {(int)response.StatusCode} {response.StatusCode}",
+                    ResponseBody = responseBody,
+                };
+            }
+
+            T? data = default;
+            if (!string.IsNullOrWhiteSpace(responseBody))
+            {
+                data = await response.Content.ReadFromJsonAsync<T>();
             }
 
             return new ApiResponse<T>
@@ -253,7 +386,7 @@ public class DroneApiService
 
     public Task<ApiResponse<object>> SendVelocity(double vx, double vy, double vz, double durationSeconds)
     {
-        return PostAsync<object>("/velocity/body", new VelocityBodyRequest
+        return PostAsync<object>("/sim/rc/body", new VelocityBodyRequest
         {
             Vx = vx,
             Vy = vy,
@@ -345,6 +478,43 @@ public class DroneApiService
             Param5 = param5,
             Param6 = param6,
             Param7 = param7,
+        });
+    }
+
+    public Task<ApiResponse<object>> CreateSequence(string name, List<StoredCommandRequest> commands)
+    {
+        return PostAsync<object>("/sequences", new SequenceCreateRequest
+        {
+            Name = name,
+            Commands = commands,
+        });
+    }
+
+    public Task<ApiResponse<RouteDetail>> CreateRoute(string name, List<RoutePointRequest> points, string? sequenceId = null)
+    {
+        return PostAsync<RouteDetail>("/routes", new RouteCreateRequest
+        {
+            Name = name,
+            SequenceId = sequenceId,
+            Points = points,
+        });
+    }
+
+    public Task<ApiResponse<List<RouteSummary>>> GetRoutes()
+    {
+        return GetAsync<List<RouteSummary>>("/routes");
+    }
+
+    public Task<ApiResponse<RouteDetail>> GetRoute(string routeId)
+    {
+        return GetAsync<RouteDetail>($"/routes/{Uri.EscapeDataString(routeId)}");
+    }
+
+    public Task<ApiResponse<object>> ExecuteGuidedRoute(string routeId, double waitSecondsBetweenPoints = 3.0)
+    {
+        return PostAsync<object>($"/routes/{Uri.EscapeDataString(routeId)}/execute-guided", new ExecuteRouteRequest
+        {
+            WaitSecondsBetweenPoints = waitSecondsBetweenPoints,
         });
     }
 

@@ -136,14 +136,12 @@ def disarm() -> dict:
 def takeoff(request: TakeoffRequest) -> dict:
     try:
         drone_controller.takeoff(
-            throttle_pwm=request.throttle_pwm,
-            duration_seconds=request.duration_seconds,
+            altitude_meters=request.altitude_meters,
             arm_first=request.arm_first
         )
         return {
             "success": True,
-            "throttle_pwm": request.throttle_pwm,
-            "duration_seconds": request.duration_seconds
+            "altitude_meters": request.altitude_meters
         }
     except Exception as exception:
         raise HTTPException(status_code=500, detail=str(exception))
@@ -417,7 +415,7 @@ def execute_guided_route(route_id: str, request: ExecuteRouteRequest | None = No
         points = repository.get_route_points(route_id)
         drone_controller.set_mode("GUIDED")
 
-        wait_seconds = request.wait_seconds_between_points if request else 0.2
+        wait_seconds = request.wait_seconds_between_points if request else 3.0
         for point in points:
             drone_controller.goto_global_relative(
                 point["latitude"],
