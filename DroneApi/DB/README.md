@@ -17,8 +17,10 @@ docker compose up -d
 Die API nutzt standardmaessig:
 
 ```text
-MONGODB_URI=mongodb://localhost:27017
+MONGODB_URI=mongodb://root:root@localhost:27017/?authSource=admin
 MONGODB_DATABASE=droneforge
+MONGO_INITDB_ROOT_USERNAME=root
+MONGO_INITDB_ROOT_PASSWORD=root
 ```
 
 ## API-Formate

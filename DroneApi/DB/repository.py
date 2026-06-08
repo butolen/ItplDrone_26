@@ -12,7 +12,7 @@ from pymongo.database import Database
 
 class DroneForgeRepository:
     def __init__(self) -> None:
-        mongodb_uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
+        mongodb_uri = os.getenv("MONGODB_URI", "mongodb://root:root@localhost:27017/?authSource=admin")
         database_name = os.getenv("MONGODB_DATABASE", "droneforge")
         self._client: MongoClient = MongoClient(mongodb_uri, serverSelectionTimeoutMS=3000)
         self._db: Database = self._client[database_name]

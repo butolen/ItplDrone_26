@@ -8,19 +8,19 @@
     "net9.0": []
   },
   "packageFolders": {
-    "C:\\Users\\manue\\.nuget\\packages\\": {}
+    "C:\\Users\\David\\.nuget\\packages\\": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\manue\\Documents\\GitHub\\ItplDrone_26\\DroneLauncher\\DroneLauncher.csproj",
+      "projectUniqueName": "C:\\Users\\David\\Documents\\PROJEKT\\ITPL_DroneForge\\ItplDrone_26\\DroneLauncher\\DroneLauncher.csproj",
       "projectName": "DroneLauncher",
-      "projectPath": "C:\\Users\\manue\\Documents\\GitHub\\ItplDrone_26\\DroneLauncher\\DroneLauncher.csproj",
-      "packagesPath": "C:\\Users\\manue\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\manue\\Documents\\GitHub\\ItplDrone_26\\DroneLauncher\\obj\\",
+      "projectPath": "C:\\Users\\David\\Documents\\PROJEKT\\ITPL_DroneForge\\ItplDrone_26\\DroneLauncher\\DroneLauncher.csproj",
+      "packagesPath": "C:\\Users\\David\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\David\\Documents\\PROJEKT\\ITPL_DroneForge\\ItplDrone_26\\DroneLauncher\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "C:\\Users\\manue\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        "C:\\Users\\David\\AppData\\Roaming\\NuGet\\NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net9.0"
@@ -85,7 +85,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.300/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Users\\David\\.dotnet\\sdk\\10.0.300/PortableRuntimeIdentifierGraph.json"
       }
     }
   }
