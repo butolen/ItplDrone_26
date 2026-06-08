@@ -137,7 +137,7 @@
                                 <span>Roll <strong>@RollPwm</strong></span>
                                 <span>Pitch <strong>@PitchPwm</strong></span>
                                 <span>Thr <strong>@ThrottlePwm</strong></span>
-                                <span>Yaw <strong>1500</strong></span>
+                                <span>Yaw <strong>@YawPwm</strong></span>
                             </div>
                         </div>
 
@@ -163,7 +163,9 @@
                                 <kbd>A</kbd><span>Left +</span>
                                 <kbd>D</kbd><span>Right +</span>
                                 <kbd>P</kbd><span>Throttle +</span>
-                                <kbd>L</kbd><span>Throttle -</span>
+                                <kbd>Ö</kbd><span>Throttle -</span>
+                                <kbd>L</kbd><span>Yaw left</span>
+                                <kbd>Ä</kbd><span>Yaw right</span>
                             </div>
                             <div class="button-row">
                                 <button class="primary-button" type="button" @onclick="StartStabilizeStickAsync" disabled="@(isBusy || isJoystickStreaming)">STABILIZE + Stick</button>
@@ -186,6 +188,11 @@
                                 Throttle
                                 <input type="range" @bind="joystickThrottle" @bind:event="oninput" min="-1" max="1" step="0.05" />
                                 <output>@joystickThrottle.ToString("0.00")</output>
+                            </label>
+                            <label>
+                                Yaw
+                                <input type="range" @bind="joystickYaw" @bind:event="oninput" min="-1" max="1" step="0.05" />
+                                <output>@joystickYaw.ToString("0.00")</output>
                             </label>
                         </div>
 
@@ -406,6 +413,7 @@
     private double joystickForward;
     private double joystickRight;
     private double joystickThrottle;
+    private double joystickYaw;
     private bool isJoystickStreaming;
     private CancellationTokenSource? joystickCancellation;
     private string rawCommandText = "22 0 0 0 0 0 0 5";
@@ -414,8 +422,9 @@
     private int RollPwm => AxisToPwm(joystickRight);
     private int PitchPwm => AxisToPwm(joystickForward);
     private int ThrottlePwm => AxisToPwm(joystickThrottle);
+    private int YawPwm => AxisToPwm(joystickYaw);
     private string AttitudeStickStyle => StickStyle(joystickRight, joystickForward);
-    private string ThrottleStickStyle => StickStyle(0, joystickThrottle);
+    private string ThrottleStickStyle => StickStyle(joystickYaw, joystickThrottle);
     private string PanelMessageClass => string.IsNullOrWhiteSpace(error) ? "panel-message" : "panel-message error-message";
 
     protected override void OnInitialized()
@@ -580,8 +589,14 @@
             case "p":
                 joystickThrottle = AdjustAxis(joystickThrottle, keyboardStep);
                 break;
-            case "l":
+            case "ö":
                 joystickThrottle = AdjustAxis(joystickThrottle, -keyboardStep);
+                break;
+            case "l":
+                joystickYaw = AdjustAxis(joystickYaw, -keyboardStep);
+                break;
+            case "ä":
+                joystickYaw = AdjustAxis(joystickYaw, keyboardStep);
                 break;
         }
     }
@@ -646,6 +661,7 @@
         joystickForward = 0;
         joystickRight = 0;
         joystickThrottle = 0;
+        joystickYaw = 0;
         await Handle("live", "Virtual joystick center", () => Drone.SendVirtualJoystick(0, 0, 0, 0, 0.1));
     }
 
@@ -660,7 +676,7 @@
                     Math.Clamp(joystickForward * controlStrength, -1.0, 1.0),
                     Math.Clamp(joystickRight * controlStrength, -1.0, 1.0),
                     Math.Clamp(joystickThrottle, -1.0, 1.0),
-                    0,
+                    Math.Clamp(joystickYaw * controlStrength, -1.0, 1.0),
                     0);
 
                 if (!result.Success)
