@@ -41,6 +41,21 @@
                 <button class="primary-button" type="button" @onclick="ConnectAsync" disabled="@isBusy">Connect</button>
                 <button type="button" @onclick="DisconnectAsync" disabled="@isBusy">Disconnect</button>
             </div>
+
+            @if (HasPanelMessage("connection"))
+            {
+                <div class="@PanelMessageClass">
+                    <strong>@status</strong>
+                    @if (!string.IsNullOrWhiteSpace(error))
+                    {
+                        <pre>@error</pre>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(response))
+                    {
+                        <pre>@response</pre>
+                    }
+                </div>
+            }
         </div>
 
         <div class="panel">
@@ -77,12 +92,30 @@
                 <button class="primary-button" type="button" @onclick="TakeoffAsync" disabled="@isBusy">Takeoff</button>
                 <button class="danger-button" type="button" @onclick="LandAsync" disabled="@isBusy">Land</button>
             </div>
+
+            @if (HasPanelMessage("flight"))
+            {
+                <div class="@PanelMessageClass">
+                    <strong>@status</strong>
+                    @if (!string.IsNullOrWhiteSpace(error))
+                    {
+                        <pre>@error</pre>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(response))
+                    {
+                        <pre>@response</pre>
+                    }
+                </div>
+            }
         </div>
 
         <div class="panel wide-panel">
             <div class="panel-heading">
                 <h2>Live Control</h2>
-                <button class="stop-button" type="button" @onclick="StopAsync" disabled="@isBusy">Stop</button>
+                <div class="stick-state @(isJoystickStreaming ? "active" : "")">
+                    <span></span>
+                    @(isJoystickStreaming ? "Stick active" : "Stick idle")
+                </div>
             </div>
 
             <div class="inline-fields">
@@ -90,17 +123,52 @@
                     Strength
                     <input type="number" @bind="controlStrength" min="0.05" max="1" step="0.05" />
                 </label>
-                <label>
-                    Pulse
-                    <input type="number" @bind="controlDuration" min="0" max="5" step="0.05" />
-                </label>
-                <label>
-                    Yaw speed
-                    <input type="number" @bind="yawSpeed" min="1" max="100" step="1" />
-                </label>
             </div>
 
-            <div class="joystick-panel">
+            <div class="flight-deck" tabindex="0" @onkeydown="HandleControlKeyDown" @onkeydown:preventDefault="true">
+                <div class="deck-topbar">
+                    <div>
+                        <p class="eyebrow">STABILIZE RC override</p>
+                        <strong>Virtual receiver input</strong>
+                    </div>
+                    <div class="pwm-strip">
+                        <span>Roll <strong>@RollPwm</strong></span>
+                        <span>Pitch <strong>@PitchPwm</strong></span>
+                        <span>Thr <strong>@ThrottlePwm</strong></span>
+                        <span>Yaw <strong>1500</strong></span>
+                    </div>
+                </div>
+
+                <div class="stick-stage">
+                    <div class="stick-dial throttle-stick" style="@ThrottleStickStyle">
+                        <div class="stick-ring"></div>
+                        <div class="stick-cross"></div>
+                        <div class="stick-knob"></div>
+                        <span class="stick-label">Throttle</span>
+                    </div>
+                    <div class="stick-dial attitude-stick" style="@AttitudeStickStyle">
+                        <div class="stick-ring"></div>
+                        <div class="stick-cross"></div>
+                        <div class="stick-knob"></div>
+                        <span class="stick-label">Pitch / Roll</span>
+                    </div>
+                </div>
+
+                <div class="keyboard-control">
+                    <div class="key-grid">
+                        <kbd>W</kbd><span>Forward +</span>
+                        <kbd>S</kbd><span>Forward -</span>
+                        <kbd>A</kbd><span>Left +</span>
+                        <kbd>D</kbd><span>Right +</span>
+                        <kbd>P</kbd><span>Throttle +</span>
+                        <kbd>L</kbd><span>Throttle -</span>
+                    </div>
+                    <div class="button-row">
+                        <button class="primary-button" type="button" @onclick="StartStabilizeStickAsync" disabled="@(isBusy || isJoystickStreaming)">STABILIZE + Stick</button>
+                        <button class="stop-button" type="button" @onclick="StopVirtualJoystickStreamAsync" disabled="@isBusy">Center / Stop</button>
+                    </div>
+                </div>
+
                 <div class="joystick-sliders">
                     <label>
                         Forward / Back
@@ -117,47 +185,23 @@
                         <input type="range" @bind="joystickThrottle" @bind:event="oninput" min="-1" max="1" step="0.05" />
                         <output>@joystickThrottle.ToString("0.00")</output>
                     </label>
-                    <label>
-                        Yaw
-                        <input type="range" @bind="joystickYaw" @bind:event="oninput" min="-1" max="1" step="0.05" />
-                        <output>@joystickYaw.ToString("0.00")</output>
-                    </label>
                 </div>
 
-                <div class="button-row">
-                    <button class="primary-button" type="button" @onclick="StartVirtualJoystickStreamAsync" disabled="@(isBusy || isJoystickStreaming)">Start Stick Stream</button>
-                    <button type="button" @onclick="SendVirtualJoystickAsync" disabled="@isBusy">Send Once</button>
-                    <button class="stop-button" type="button" @onclick="StopVirtualJoystickStreamAsync" disabled="@isBusy">Center / Stop</button>
-                </div>
+                @if (HasPanelMessage("live"))
+                {
+                    <div class="@PanelMessageClass">
+                        <strong>@status</strong>
+                        @if (!string.IsNullOrWhiteSpace(error))
+                        {
+                            <pre>@error</pre>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(response))
+                        {
+                            <pre>@response</pre>
+                        }
+                    </div>
+                }
             </div>
-
-            <div class="button-pad">
-                <button type="button" @onclick="MoveForwardAsync" disabled="@isBusy">Forward</button>
-                <button type="button" @onclick="MoveLeftAsync" disabled="@isBusy">Left</button>
-                <button class="stop-button" type="button" @onclick="StopAsync" disabled="@isBusy">Stop</button>
-                <button type="button" @onclick="MoveRightAsync" disabled="@isBusy">Right</button>
-                <button type="button" @onclick="MoveBackAsync" disabled="@isBusy">Back</button>
-            </div>
-
-            <div class="button-row">
-                <button type="button" @onclick="MoveUpAsync" disabled="@isBusy">Up</button>
-                <button type="button" @onclick="MoveDownAsync" disabled="@isBusy">Down</button>
-                <button type="button" @onclick="YawLeftAsync" disabled="@isBusy">Yaw Left</button>
-                <button type="button" @onclick="YawRightAsync" disabled="@isBusy">Yaw Right</button>
-            </div>
-
-            <div class="inline-fields">
-                <label>
-                    Throttle PWM
-                    <input type="number" @bind="throttlePwm" min="1000" max="2000" step="10" />
-                </label>
-                <label>
-                    Duration
-                    <input type="number" @bind="throttleDuration" min="0" max="30" step="0.1" />
-                </label>
-            </div>
-
-            <button type="button" @onclick="SendThrottleAsync" disabled="@isBusy">Send Throttle</button>
         </div>
 
         <div class="panel wide-panel">
@@ -175,24 +219,29 @@
             </div>
 
             <button class="primary-button" type="button" @onclick="SendRawCommandAsync" disabled="@isBusy">Send Command</button>
+
+            @if (HasPanelMessage("raw"))
+            {
+                <div class="@PanelMessageClass">
+                    <strong>@status</strong>
+                    @if (!string.IsNullOrWhiteSpace(error))
+                    {
+                        <pre>@error</pre>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(response))
+                    {
+                        <pre>@response</pre>
+                    }
+                </div>
+            }
         </div>
     </section>
 
     <section class="telemetry-band">
         <div>
-            <p class="eyebrow">Last action</p>
-            <strong>@status</strong>
+            <p class="eyebrow">Telemetry</p>
+            <strong>Vehicle status</strong>
         </div>
-
-        @if (!string.IsNullOrWhiteSpace(error))
-        {
-            <pre class="error-output">@error</pre>
-        }
-
-        @if (!string.IsNullOrWhiteSpace(response))
-        {
-            <pre>@response</pre>
-        }
 
         @if (!string.IsNullOrWhiteSpace(statusJson))
         {
@@ -208,6 +257,7 @@
     private string error = "";
     private string response = "";
     private string statusJson = "";
+    private string activeStatusArea = "";
     private string rawCommandText = "command_long 22 0 0 0 0 0 0 5";
     private bool isBusy;
     private bool isConnected;
@@ -221,24 +271,28 @@
     private bool armBeforeTakeoff = true;
 
     private double controlStrength = 0.45;
-    private double controlDuration = 0.35;
-    private double yawSpeed = 35.0;
-    private int throttlePwm = 1500;
-    private double throttleDuration = 0.25;
+    private double keyboardStep = 0.05;
     private double joystickForward;
     private double joystickRight;
     private double joystickThrottle;
-    private double joystickYaw;
     private bool isJoystickStreaming;
     private CancellationTokenSource? joystickCancellation;
+
+    private int RollPwm => AxisToPwm(joystickRight);
+    private int PitchPwm => AxisToPwm(joystickForward);
+    private int ThrottlePwm => AxisToPwm(joystickThrottle);
+    private string AttitudeStickStyle => StickStyle(joystickRight, joystickForward);
+    private string ThrottleStickStyle => StickStyle(0, joystickThrottle);
+    private string PanelMessageClass => string.IsNullOrWhiteSpace(error) ? "panel-message" : "panel-message error-message";
 
     protected override void OnInitialized()
     {
         _ = PollStatusAsync(statusCancellation.Token);
     }
 
-    private async Task Handle(string name, Func<Task<DroneApiService.ApiResponse<object>>> action)
+    private async Task Handle(string area, string name, Func<Task<DroneApiService.ApiResponse<object>>> action)
     {
+        activeStatusArea = area;
         error = "";
         response = "";
         status = $"{name}...";
@@ -275,11 +329,12 @@
             status = "Connect blocked";
             error = "Enter a MAVLink endpoint such as udpin:0.0.0.0:14551 or tcp:127.0.0.1:5763.";
             response = "";
+            activeStatusArea = "connection";
             isConnected = false;
             return Task.CompletedTask;
         }
 
-        return Handle("Connect", async () =>
+        return Handle("connection", "Connect", async () =>
         {
             var result = await Drone.Connect(trimmedConnectionString, baudRate, heartbeat);
             isConnected = result.Success;
@@ -289,7 +344,7 @@
 
     private Task DisconnectAsync()
     {
-        return Handle("Disconnect", async () =>
+        return Handle("connection", "Disconnect", async () =>
         {
             var result = await Drone.Disconnect();
             isConnected = false;
@@ -298,28 +353,73 @@
         });
     }
 
-    private Task SetModeAsync() => Handle("Set mode", () => Drone.SetMode(selectedMode));
-    private Task ArmAsync() => Handle("Arm", Drone.Arm);
-    private Task DisarmAsync() => Handle("Disarm", Drone.Disarm);
-    private Task TakeoffAsync() => Handle("Takeoff 5m", () => Drone.Takeoff(takeoffAltitudeMeters, armBeforeTakeoff));
-    private Task LandAsync() => Handle("Land", Drone.Land);
-    private Task StopAsync() => SendVelocityCommand("Stop", 0, 0, 0);
+    private Task SetModeAsync() => Handle("flight", "Set mode", () => Drone.SetMode(selectedMode));
+    private Task ArmAsync() => Handle("flight", "Arm", Drone.Arm);
+    private Task DisarmAsync() => Handle("flight", "Disarm", Drone.Disarm);
+    private Task TakeoffAsync() => Handle("flight", "Takeoff 5m", () => Drone.Takeoff(takeoffAltitudeMeters, armBeforeTakeoff));
+    private Task LandAsync() => Handle("flight", "Land", Drone.Land);
 
-    private Task MoveForwardAsync() => SendVelocityCommand("Forward", controlStrength, 0, 0);
-    private Task MoveBackAsync() => SendVelocityCommand("Back", -controlStrength, 0, 0);
-    private Task MoveLeftAsync() => SendVelocityCommand("Left", 0, -controlStrength, 0);
-    private Task MoveRightAsync() => SendVelocityCommand("Right", 0, controlStrength, 0);
-    private Task MoveUpAsync() => SendVelocityCommand("Up", 0, 0, -controlStrength);
-    private Task MoveDownAsync() => SendVelocityCommand("Down", 0, 0, controlStrength);
-    private Task YawLeftAsync() => Handle("Yaw left", () => Drone.Yaw(-20, yawSpeed, true));
-    private Task YawRightAsync() => Handle("Yaw right", () => Drone.Yaw(20, yawSpeed, true));
-    private Task SendThrottleAsync() => Handle("Throttle", () => Drone.SendThrottle(throttlePwm, throttleDuration));
-    private Task SendVirtualJoystickAsync() => Handle("Virtual joystick", () => Drone.SendVirtualJoystick(
-        Math.Clamp(joystickForward * controlStrength, -1.0, 1.0),
-        Math.Clamp(joystickRight * controlStrength, -1.0, 1.0),
-        Math.Clamp(joystickThrottle, -1.0, 1.0),
-        Math.Clamp(joystickYaw * controlStrength, -1.0, 1.0),
-        Math.Clamp(controlDuration, 0.0, 5.0)));
+    private void HandleControlKeyDown(KeyboardEventArgs args)
+    {
+        switch (args.Key.ToLowerInvariant())
+        {
+            case "w":
+                joystickForward = AdjustAxis(joystickForward, keyboardStep);
+                break;
+            case "s":
+                joystickForward = AdjustAxis(joystickForward, -keyboardStep);
+                break;
+            case "a":
+                joystickRight = AdjustAxis(joystickRight, -keyboardStep);
+                break;
+            case "d":
+                joystickRight = AdjustAxis(joystickRight, keyboardStep);
+                break;
+            case "p":
+                joystickThrottle = AdjustAxis(joystickThrottle, keyboardStep);
+                break;
+            case "l":
+                joystickThrottle = AdjustAxis(joystickThrottle, -keyboardStep);
+                break;
+        }
+    }
+
+    private static double AdjustAxis(double current, double delta)
+    {
+        return Math.Round(Math.Clamp(current + delta, -1.0, 1.0), 2);
+    }
+
+    private static int AxisToPwm(double value)
+    {
+        return (int)Math.Round(1500 + (Math.Clamp(value, -1.0, 1.0) * 500));
+    }
+
+    private static string StickStyle(double x, double y)
+    {
+        var left = 50 + (Math.Clamp(x, -1.0, 1.0) * 42);
+        var top = 50 - (Math.Clamp(y, -1.0, 1.0) * 42);
+
+        return FormattableString.Invariant($"--stick-x:{left:0.##}%;--stick-y:{top:0.##}%;");
+    }
+
+    private bool HasPanelMessage(string area)
+    {
+        return string.Equals(activeStatusArea, area, StringComparison.Ordinal)
+            && (!string.IsNullOrWhiteSpace(status)
+                || !string.IsNullOrWhiteSpace(error)
+                || !string.IsNullOrWhiteSpace(response));
+    }
+
+    private async Task StartStabilizeStickAsync()
+    {
+        selectedMode = "STABILIZE";
+        await Handle("live", "Set STABILIZE", () => Drone.SetMode("STABILIZE"));
+
+        if (string.IsNullOrWhiteSpace(error))
+        {
+            await StartVirtualJoystickStreamAsync();
+        }
+    }
 
     private Task StartVirtualJoystickStreamAsync()
     {
@@ -330,6 +430,9 @@
 
         joystickCancellation = new CancellationTokenSource();
         isJoystickStreaming = true;
+        activeStatusArea = "live";
+        error = "";
+        response = "";
         status = "Virtual joystick streaming";
         _ = StreamVirtualJoystickAsync(joystickCancellation.Token);
         return Task.CompletedTask;
@@ -344,8 +447,7 @@
         joystickForward = 0;
         joystickRight = 0;
         joystickThrottle = 0;
-        joystickYaw = 0;
-        await Handle("Virtual joystick center", () => Drone.SendVirtualJoystick(0, 0, 0, 0, 0.1));
+        await Handle("live", "Virtual joystick center", () => Drone.SendVirtualJoystick(0, 0, 0, 0, 0.1));
     }
 
     private async Task StreamVirtualJoystickAsync(CancellationToken cancellationToken)
@@ -360,11 +462,12 @@
                     Math.Clamp(joystickForward * controlStrength, -1.0, 1.0),
                     Math.Clamp(joystickRight * controlStrength, -1.0, 1.0),
                     Math.Clamp(joystickThrottle, -1.0, 1.0),
-                    Math.Clamp(joystickYaw * controlStrength, -1.0, 1.0),
+                    0,
                     0);
 
                 if (!result.Success)
                 {
+                    activeStatusArea = "live";
                     status = "Virtual joystick failed";
                     error = CombineError(result.ErrorMessage, result.ResponseBody);
                     isJoystickStreaming = false;
@@ -386,13 +489,14 @@
     {
         if (!TryParseRawCommand(rawCommandText, out var commandId, out var parameters, out var parseError))
         {
+            activeStatusArea = "raw";
             status = "Raw command blocked";
             error = parseError;
             response = "";
             return Task.CompletedTask;
         }
 
-        return Handle("Raw command", () => Drone.RawCommand(
+        return Handle("raw", "Raw command", () => Drone.RawCommand(
             commandId,
             parameters[0],
             parameters[1],
@@ -401,15 +505,6 @@
             parameters[4],
             parameters[5],
             parameters[6]));
-    }
-
-    private Task SendVelocityCommand(string name, double vx, double vy, double vz)
-    {
-        return Handle(name, () => Drone.SendVelocity(
-            Math.Clamp(vx, -1.0, 1.0),
-            Math.Clamp(vy, -1.0, 1.0),
-            Math.Clamp(vz, -1.0, 1.0),
-            Math.Clamp(controlDuration, 0.0, 5.0)));
     }
 
     private void SetRawCommandExample(string command)
@@ -480,7 +575,16 @@
 
     private async Task RefreshStatus()
     {
+        activeStatusArea = "connection";
+        error = "";
+        response = "";
+        status = "Status...";
         await RefreshStatus(showErrors: true);
+
+        if (string.IsNullOrWhiteSpace(error))
+        {
+            status = "Status OK";
+        }
     }
 
     private async Task RefreshStatus(bool showErrors)
@@ -693,20 +797,185 @@
         grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
     }
 
-    .button-pad {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(96px, 1fr));
-        gap: 10px;
-        max-width: 520px;
+    .stick-state {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 118px;
+        justify-content: center;
+        padding: 7px 10px;
+        border: 1px solid #34404c;
+        border-radius: 999px;
+        color: #b7c5d1;
+        font-size: 0.78rem;
+        font-weight: 800;
     }
 
-    .joystick-panel {
+    .stick-state span {
+        width: 9px;
+        height: 9px;
+        border-radius: 999px;
+        background: #75511b;
+    }
+
+    .stick-state.active span {
+        background: #4cc27a;
+    }
+
+    .flight-deck {
         display: grid;
+        gap: 14px;
+        min-height: 360px;
+        padding: 14px;
+        border: 1px solid #2d3c47;
+        border-radius: 8px;
+        outline: none;
+        background:
+            linear-gradient(90deg, rgba(12, 17, 21, 0.92), rgba(12, 17, 21, 0.45), rgba(12, 17, 21, 0.92)),
+            radial-gradient(circle at 18% 35%, rgba(92, 126, 100, 0.62), transparent 22%),
+            radial-gradient(circle at 78% 28%, rgba(125, 111, 86, 0.52), transparent 19%),
+            repeating-linear-gradient(28deg, rgba(255, 255, 255, 0.08) 0 2px, transparent 2px 34px),
+            repeating-linear-gradient(116deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 42px),
+            #101418;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+    }
+
+    .flight-deck:focus {
+        border-color: #2482ab;
+        box-shadow: 0 0 0 2px rgba(36, 130, 171, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+    }
+
+    .deck-topbar,
+    .keyboard-control {
+        display: grid;
+        grid-template-columns: minmax(200px, 1fr) minmax(280px, 1.4fr);
+        align-items: center;
         gap: 12px;
         padding: 12px;
-        border: 1px solid #2b3540;
+        border: 1px solid rgba(92, 110, 124, 0.62);
         border-radius: 6px;
-        background: #111820;
+        background: rgba(12, 17, 21, 0.82);
+        backdrop-filter: blur(6px);
+    }
+
+    .deck-topbar strong {
+        color: #f4f7fa;
+        font-size: 1rem;
+    }
+
+    .pwm-strip {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .pwm-strip span {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 8px 10px;
+        border: 1px solid #34404c;
+        border-radius: 6px;
+        background: #0f1419;
+        color: #9fb1c1;
+        font-size: 0.78rem;
+        font-weight: 800;
+    }
+
+    .pwm-strip strong {
+        color: #f4f7fa;
+        font-size: 0.78rem;
+    }
+
+    .stick-stage {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+        align-items: center;
+        justify-items: center;
+        gap: 20px;
+        min-height: 170px;
+    }
+
+    .stick-dial {
+        position: relative;
+        width: min(32vw, 172px);
+        min-width: 132px;
+        aspect-ratio: 1;
+        border-radius: 999px;
+        background: rgba(5, 8, 10, 0.32);
+    }
+
+    .stick-ring {
+        position: absolute;
+        inset: 0;
+        border: 2px solid rgba(244, 247, 250, 0.55);
+        border-radius: inherit;
+        box-shadow: 0 0 0 16px rgba(244, 247, 250, 0.08), inset 0 0 32px rgba(0, 0, 0, 0.38);
+    }
+
+    .stick-cross::before,
+    .stick-cross::after {
+        position: absolute;
+        content: "";
+        background: rgba(244, 247, 250, 0.26);
+    }
+
+    .stick-cross::before {
+        left: 50%;
+        top: 12%;
+        width: 1px;
+        height: 76%;
+    }
+
+    .stick-cross::after {
+        left: 12%;
+        top: 50%;
+        width: 76%;
+        height: 1px;
+    }
+
+    .stick-knob {
+        position: absolute;
+        left: var(--stick-x);
+        top: var(--stick-y);
+        width: 24px;
+        height: 24px;
+        border: 2px solid #f4f7fa;
+        border-radius: 999px;
+        background: rgba(244, 247, 250, 0.36);
+        transform: translate(-50%, -50%);
+        box-shadow: 0 0 22px rgba(36, 130, 171, 0.55);
+    }
+
+    .stick-label {
+        position: absolute;
+        left: 50%;
+        bottom: -34px;
+        transform: translateX(-50%);
+        min-width: 122px;
+        text-align: center;
+        color: #d9e4ee;
+        font-size: 0.78rem;
+        font-weight: 800;
+    }
+
+    .key-grid {
+        display: grid;
+        grid-template-columns: repeat(3, auto 1fr);
+        align-items: center;
+        gap: 8px 10px;
+    }
+
+    kbd {
+        min-width: 28px;
+        padding: 3px 7px;
+        border: 1px solid #40505f;
+        border-radius: 4px;
+        background: #25313b;
+        color: #f4f7fa;
+        font: inherit;
+        font-weight: 800;
+        text-align: center;
     }
 
     .joystick-sliders {
@@ -735,13 +1004,31 @@
         font-variant-numeric: tabular-nums;
     }
 
-    .button-pad button:first-child,
-    .button-pad button:last-child {
-        grid-column: 2;
+    .panel-message {
+        display: grid;
+        gap: 8px;
+        padding: 10px 12px;
+        border: 1px solid #2f4a3c;
+        border-radius: 6px;
+        background: rgba(35, 74, 52, 0.34);
+        color: #d8f3df;
     }
 
-    .button-pad button:last-child {
-        grid-row: 3;
+    .panel-message.error-message {
+        border-color: #914047;
+        background: rgba(92, 31, 38, 0.36);
+        color: #ffccd1;
+    }
+
+    .panel-message strong {
+        font-size: 0.88rem;
+    }
+
+    .panel-message pre {
+        max-height: 150px;
+        border-color: rgba(255, 255, 255, 0.1);
+        background: rgba(0, 0, 0, 0.18);
+        padding: 8px;
     }
 
     button {
@@ -831,9 +1118,16 @@
             grid-column: auto;
         }
 
-        .button-pad {
-            max-width: none;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+        .keyboard-control,
+        .deck-topbar,
+        .key-grid,
+        .pwm-strip,
+        .stick-stage {
+            grid-template-columns: 1fr;
+        }
+
+        .flight-deck {
+            min-height: 520px;
         }
     }
 </style>
