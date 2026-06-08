@@ -315,6 +315,45 @@ class DroneController:
 
         self._send_manual_control(0, 0, 500, 0)
 
+    def send_simulated_rc(
+        self,
+        forward: float | None = None,
+        right: float | None = None,
+        up: float | None = None,
+        yaw: float | None = None,
+        roll_pwm: int | None = None,
+        pitch_pwm: int | None = None,
+        throttle_pwm: int | None = None,
+        yaw_pwm: int | None = None,
+        aux1_pwm: int | None = None,
+        aux2_pwm: int | None = None,
+        aux3_pwm: int | None = None,
+        aux4_pwm: int | None = None,
+        duration_seconds: float = 0.0,
+        release_after: bool = False,
+    ) -> list[int]:
+        channels = [
+            roll_pwm if roll_pwm is not None else self._axis_to_pwm(right),
+            pitch_pwm if pitch_pwm is not None else self._axis_to_pwm(forward),
+            throttle_pwm if throttle_pwm is not None else self._axis_to_pwm(up),
+            yaw_pwm if yaw_pwm is not None else self._axis_to_pwm(yaw),
+            self._pwm_or_ignore(aux1_pwm),
+            self._pwm_or_ignore(aux2_pwm),
+            self._pwm_or_ignore(aux3_pwm),
+            self._pwm_or_ignore(aux4_pwm),
+        ]
+
+        self.send_rc_override(
+            roll=channels[0],
+            pitch=channels[1],
+            throttle=channels[2],
+            yaw=channels[3],
+            duration_seconds=duration_seconds,
+            release_after=release_after,
+        )
+
+        return channels
+
     def move_body_for_duration(
         self,
         vx: float,
@@ -509,6 +548,17 @@ class DroneController:
                 yaw,
                 0,
             )
+
+    def _axis_to_pwm(self, value: float | None) -> int:
+        if value is None:
+            return self.RC_NEUTRAL
+
+        clamped = max(-1.0, min(1.0, float(value)))
+        return int(round(self.RC_NEUTRAL + (clamped * 500)))
+
+    @staticmethod
+    def pwm_to_thrust(throttle_pwm: int) -> float:
+        return max(0.0, min(1.0, (int(throttle_pwm) - 1000) / 1000.0))
 
     def release_rc_override(self) -> None:
         with self._lock:

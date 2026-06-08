@@ -269,13 +269,14 @@ public class DroneApiService
         double yaw,
         double durationSeconds)
     {
-        return PostAsync<object>("/joystick/virtual", new VirtualJoystickRequest
+        return PostAsync<object>("/sim/rc", new
         {
-            Forward = forward,
-            Right = right,
-            Throttle = throttle,
-            Yaw = yaw,
-            DurationSeconds = durationSeconds,
+            forward,
+            right,
+            up = throttle,
+            yaw,
+            duration_seconds = durationSeconds,
+            release_after = false,
         });
     }
 
