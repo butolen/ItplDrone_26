@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ITPDroneGUI")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+2102286a4a6b15666ec486786065625841a2d83b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+868cd2ae0627e2083727f5ac58bbaf410da7f5c7")]
 [assembly: System.Reflection.AssemblyProductAttribute("ITPDroneGUI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ITPDroneGUI")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

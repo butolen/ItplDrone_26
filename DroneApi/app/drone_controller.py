@@ -42,6 +42,19 @@ class DroneController:
         self._last_climb_mps: Optional[float] = None
         self._last_gps_fix_type: Optional[int] = None
         self._last_satellites_visible: Optional[int] = None
+        self._last_hdop: Optional[float] = None
+        self._last_cog_deg: Optional[float] = None
+        self._last_pressure_hpa: Optional[float] = None
+        self._last_temperature_c: Optional[float] = None
+        self._last_accel_x: Optional[float] = None
+        self._last_accel_y: Optional[float] = None
+        self._last_accel_z: Optional[float] = None
+        self._last_gyro_x: Optional[float] = None
+        self._last_gyro_y: Optional[float] = None
+        self._last_gyro_z: Optional[float] = None
+        self._last_mag_x: Optional[int] = None
+        self._last_mag_y: Optional[int] = None
+        self._last_mag_z: Optional[int] = None
 
     @property
     def master(self) -> mavutil.mavfile:
@@ -531,6 +544,66 @@ class DroneController:
         self._drain_mavlink_messages(0.03)
         return self._status_snapshot()
 
+    def get_telemetry(self) -> dict[str, Any]:
+        if not self.is_connected():
+            return self._empty_telemetry()
+
+        self._drain_mavlink_messages(0.05)
+        return {
+            "gps_fix": self._last_gps_fix_type if self._last_gps_fix_type is not None else 0,
+            "gps_satellites": self._last_satellites_visible if self._last_satellites_visible is not None else 0,
+            "latitude": self._last_latitude_deg if self._last_latitude_deg is not None else 0.0,
+            "longitude": self._last_longitude_deg if self._last_longitude_deg is not None else 0.0,
+            "gps_altitude": self._last_absolute_altitude_m if self._last_absolute_altitude_m is not None else 0.0,
+            "ground_speed": self._last_groundspeed_mps if self._last_groundspeed_mps is not None else 0.0,
+            "cog": self._last_cog_deg if self._last_cog_deg is not None else self._heading_or_zero(),
+            "hdop": self._last_hdop if self._last_hdop is not None else 0.0,
+            "relative_alt": self._last_relative_altitude_m if self._last_relative_altitude_m is not None else 0.0,
+            "absolute_alt": self._last_absolute_altitude_m if self._last_absolute_altitude_m is not None else 0.0,
+            "pressure": self._last_pressure_hpa if self._last_pressure_hpa is not None else 0.0,
+            "accel_x": self._last_accel_x if self._last_accel_x is not None else 0.0,
+            "accel_y": self._last_accel_y if self._last_accel_y is not None else 0.0,
+            "accel_z": self._last_accel_z if self._last_accel_z is not None else 0.0,
+            "gyro_x": self._last_gyro_x if self._last_gyro_x is not None else 0.0,
+            "gyro_y": self._last_gyro_y if self._last_gyro_y is not None else 0.0,
+            "gyro_z": self._last_gyro_z if self._last_gyro_z is not None else 0.0,
+            "mag_x": self._last_mag_x if self._last_mag_x is not None else 0,
+            "mag_y": self._last_mag_y if self._last_mag_y is not None else 0,
+            "mag_z": self._last_mag_z if self._last_mag_z is not None else 0,
+            "temperature": self._last_temperature_c if self._last_temperature_c is not None else 0.0,
+            "compass_heading": self._heading_or_zero(),
+        }
+
+    @staticmethod
+    def _empty_telemetry() -> dict[str, Any]:
+        return {
+            "gps_fix": 0,
+            "gps_satellites": 0,
+            "latitude": 0.0,
+            "longitude": 0.0,
+            "gps_altitude": 0.0,
+            "ground_speed": 0.0,
+            "cog": 0.0,
+            "hdop": 0.0,
+            "relative_alt": 0.0,
+            "absolute_alt": 0.0,
+            "pressure": 0.0,
+            "accel_x": 0.0,
+            "accel_y": 0.0,
+            "accel_z": 0.0,
+            "gyro_x": 0.0,
+            "gyro_y": 0.0,
+            "gyro_z": 0.0,
+            "mag_x": 0,
+            "mag_y": 0,
+            "mag_z": 0,
+            "temperature": 0.0,
+            "compass_heading": 0.0,
+        }
+
+    def _heading_or_zero(self) -> float:
+        return self._last_heading_deg if self._last_heading_deg is not None else 0.0
+
     def _status_snapshot(self) -> dict[str, Any]:
         return {
             "connected": True,
@@ -602,6 +675,8 @@ class DroneController:
             mavutil.mavlink.MAVLINK_MSG_ID_SYS_STATUS,
             mavutil.mavlink.MAVLINK_MSG_ID_BATTERY_STATUS,
             mavutil.mavlink.MAVLINK_MSG_ID_GPS_RAW_INT,
+            mavutil.mavlink.MAVLINK_MSG_ID_RAW_IMU,
+            mavutil.mavlink.MAVLINK_MSG_ID_SCALED_PRESSURE,
         ]
 
         with self._lock:
@@ -683,6 +758,7 @@ class DroneController:
             heading_raw = int(getattr(message, "hdg", 65535))
             if heading_raw != 65535:
                 self._last_heading_deg = heading_raw / 100.0
+                self._last_cog_deg = self._last_heading_deg
             vx = float(getattr(message, "vx", 0.0)) / 100.0
             vy = float(getattr(message, "vy", 0.0)) / 100.0
             self._last_groundspeed_mps = math.hypot(vx, vy)
@@ -722,6 +798,12 @@ class DroneController:
         if message_type == "GPS_RAW_INT":
             self._last_gps_fix_type = int(getattr(message, "fix_type", 0))
             self._last_satellites_visible = int(getattr(message, "satellites_visible", 0))
+            eph = int(getattr(message, "eph", 65535))
+            if eph != 65535:
+                self._last_hdop = eph / 100.0
+            cog = int(getattr(message, "cog", 65535))
+            if cog != 65535:
+                self._last_cog_deg = cog / 100.0
             lat = int(getattr(message, "lat", 0))
             lon = int(getattr(message, "lon", 0))
             if lat != 0 or lon != 0:
@@ -730,6 +812,24 @@ class DroneController:
             alt = int(getattr(message, "alt", 0))
             if alt != 0:
                 self._last_absolute_altitude_m = alt / 1000.0
+            return
+
+        if message_type == "RAW_IMU":
+            self._last_accel_x = float(getattr(message, "xacc", 0.0)) / 1000.0
+            self._last_accel_y = float(getattr(message, "yacc", 0.0)) / 1000.0
+            self._last_accel_z = float(getattr(message, "zacc", 0.0)) / 1000.0
+            self._last_gyro_x = float(getattr(message, "xgyro", 0.0)) / 1000.0
+            self._last_gyro_y = float(getattr(message, "ygyro", 0.0)) / 1000.0
+            self._last_gyro_z = float(getattr(message, "zgyro", 0.0)) / 1000.0
+            self._last_mag_x = int(getattr(message, "xmag", 0))
+            self._last_mag_y = int(getattr(message, "ymag", 0))
+            self._last_mag_z = int(getattr(message, "zmag", 0))
+            return
+
+        if message_type == "SCALED_PRESSURE":
+            self._last_pressure_hpa = float(getattr(message, "press_abs", 0.0))
+            temp_raw = int(getattr(message, "temperature", 0))
+            self._last_temperature_c = temp_raw / 100.0
 
     def _altitude_from_message(self, message: Any) -> float | None:
         if message is None:

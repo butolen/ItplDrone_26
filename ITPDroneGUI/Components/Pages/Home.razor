@@ -7,7 +7,7 @@
 <div class="drone-shell">
     <header class="drone-header">
         <div>
-            <p class="eyebrow">ArduCopter SITL</p>
+            <p class="eyebrow">ArduCopter SITL / ESP32 MAVLink</p>
             <h1>Drone Control</h1>
         </div>
         <div class="connection-state @(isConnected ? "online" : "offline")">
@@ -16,199 +16,330 @@
         </div>
     </header>
 
-    <section class="control-grid">
-        <div class="panel">
-            <div class="panel-heading">
-                <h2>Connection</h2>
-                <button class="ghost-button" type="button" @onclick="RefreshStatus">Status</button>
-            </div>
+    <div class="main-layout">
+        <div class="content-area">
+            <section class="control-grid">
+                <div class="panel">
+                    <div class="panel-heading">
+                        <h2>Connection</h2>
+                        <button class="ghost-button" type="button" @onclick="RefreshStatus">Status</button>
+                    </div>
 
-            <label for="connectionString">MAVLink endpoint</label>
-            <input id="connectionString" @bind="connectionString" @bind:event="oninput" placeholder="udpin:0.0.0.0:14551" />
+                    <label for="connectionString">MAVLink endpoint</label>
+                    <input id="connectionString" @bind="connectionString" @bind:event="oninput" placeholder="udpin:0.0.0.0:14551" />
 
-            <div class="inline-fields">
-                <label>
-                    Baud
-                    <input type="number" @bind="baudRate" min="1" />
-                </label>
-                <label>
-                    Timeout
-                    <input type="number" @bind="heartbeat" min="0.1" max="60" step="0.1" />
-                </label>
-            </div>
+                    <div class="inline-fields">
+                        <label>
+                            Baud
+                            <input type="number" @bind="baudRate" min="1" />
+                        </label>
+                        <label>
+                            Timeout
+                            <input type="number" @bind="heartbeat" min="0.1" max="60" step="0.1" />
+                        </label>
+                    </div>
 
-            <div class="button-row">
-                <button class="primary-button" type="button" @onclick="ConnectAsync" disabled="@isBusy">Connect</button>
-                <button type="button" @onclick="DisconnectAsync" disabled="@isBusy">Disconnect</button>
-            </div>
-        </div>
-
-        <div class="panel">
-            <div class="panel-heading">
-                <h2>Flight</h2>
-            </div>
-
-            <div class="inline-fields">
-                <label>
-                    Mode
-                    <select @bind="selectedMode">
-                        <option>STABILIZE</option>
-                        <option>ALT_HOLD</option>
-                        <option>GUIDED</option>
-                        <option>LOITER</option>
-                        <option>LAND</option>
-                    </select>
-                </label>
-                <label>
-                    Takeoff height
-                    <input type="number" @bind="takeoffAltitudeMeters" min="1" max="50" step="0.5" />
-                </label>
-            </div>
-
-            <label class="checkbox-label">
-                <input type="checkbox" @bind="armBeforeTakeoff" />
-                Arm first
-            </label>
-
-            <div class="button-row">
-                <button type="button" @onclick="SetModeAsync" disabled="@isBusy">Set Mode</button>
-                <button type="button" @onclick="ArmAsync" disabled="@isBusy">Arm</button>
-                <button type="button" @onclick="DisarmAsync" disabled="@isBusy">Disarm</button>
-                <button class="primary-button" type="button" @onclick="TakeoffAsync" disabled="@isBusy">Takeoff</button>
-                <button class="danger-button" type="button" @onclick="LandAsync" disabled="@isBusy">Land</button>
-            </div>
-        </div>
-
-        <div class="panel wide-panel">
-            <div class="panel-heading">
-                <h2>Live Control</h2>
-                <button class="stop-button" type="button" @onclick="StopAsync" disabled="@isBusy">Stop</button>
-            </div>
-
-            <div class="inline-fields">
-                <label>
-                    Strength
-                    <input type="number" @bind="controlStrength" min="0.05" max="1" step="0.05" />
-                </label>
-                <label>
-                    Pulse
-                    <input type="number" @bind="controlDuration" min="0" max="5" step="0.05" />
-                </label>
-                <label>
-                    Yaw speed
-                    <input type="number" @bind="yawSpeed" min="1" max="100" step="1" />
-                </label>
-            </div>
-
-            <div class="joystick-panel">
-                <div class="joystick-sliders">
-                    <label>
-                        Forward / Back
-                        <input type="range" @bind="joystickForward" @bind:event="oninput" min="-1" max="1" step="0.05" />
-                        <output>@joystickForward.ToString("0.00")</output>
-                    </label>
-                    <label>
-                        Left / Right
-                        <input type="range" @bind="joystickRight" @bind:event="oninput" min="-1" max="1" step="0.05" />
-                        <output>@joystickRight.ToString("0.00")</output>
-                    </label>
-                    <label>
-                        Throttle
-                        <input type="range" @bind="joystickThrottle" @bind:event="oninput" min="-1" max="1" step="0.05" />
-                        <output>@joystickThrottle.ToString("0.00")</output>
-                    </label>
-                    <label>
-                        Yaw
-                        <input type="range" @bind="joystickYaw" @bind:event="oninput" min="-1" max="1" step="0.05" />
-                        <output>@joystickYaw.ToString("0.00")</output>
-                    </label>
+                    <div class="button-row">
+                        <button class="primary-button" type="button" @onclick="ConnectAsync" disabled="@isBusy">Connect</button>
+                        <button type="button" @onclick="DisconnectAsync" disabled="@isBusy">Disconnect</button>
+                    </div>
                 </div>
 
-                <div class="button-row">
-                    <button class="primary-button" type="button" @onclick="StartVirtualJoystickStreamAsync" disabled="@(isBusy || isJoystickStreaming)">Start Stick Stream</button>
-                    <button type="button" @onclick="SendVirtualJoystickAsync" disabled="@isBusy">Send Once</button>
-                    <button class="stop-button" type="button" @onclick="StopVirtualJoystickStreamAsync" disabled="@isBusy">Center / Stop</button>
+                <div class="panel">
+                    <div class="panel-heading">
+                        <h2>Flight</h2>
+                    </div>
+
+                    <div class="inline-fields">
+                        <label>
+                            Mode
+                            <select @bind="selectedMode">
+                                <option>STABILIZE</option>
+                                <option>ALT_HOLD</option>
+                                <option>GUIDED</option>
+                                <option>LOITER</option>
+                                <option>LAND</option>
+                            </select>
+                        </label>
+                        <label>
+                            Takeoff height
+                            <input type="number" @bind="takeoffAltitudeMeters" min="1" max="50" step="0.5" />
+                        </label>
+                    </div>
+
+                    <label class="checkbox-label">
+                        <input type="checkbox" @bind="armBeforeTakeoff" />
+                        Arm first
+                    </label>
+
+                    <div class="button-row">
+                        <button type="button" @onclick="SetModeAsync" disabled="@isBusy">Set Mode</button>
+                        <button type="button" @onclick="ArmAsync" disabled="@isBusy">Arm</button>
+                        <button type="button" @onclick="DisarmAsync" disabled="@isBusy">Disarm</button>
+                        <button class="primary-button" type="button" @onclick="TakeoffAsync" disabled="@isBusy">Takeoff</button>
+                        <button class="danger-button" type="button" @onclick="LandAsync" disabled="@isBusy">Land</button>
+                    </div>
+                </div>
+
+                <div class="panel wide-panel">
+                    <div class="panel-heading">
+                        <h2>Live Control</h2>
+                        <button class="stop-button" type="button" @onclick="StopAsync" disabled="@isBusy">Stop</button>
+                    </div>
+
+                    <div class="inline-fields">
+                        <label>
+                            Strength
+                            <input type="number" @bind="controlStrength" min="0.05" max="1" step="0.05" />
+                        </label>
+                        <label>
+                            Pulse
+                            <input type="number" @bind="controlDuration" min="0" max="5" step="0.05" />
+                        </label>
+                        <label>
+                            Yaw speed
+                            <input type="number" @bind="yawSpeed" min="1" max="100" step="1" />
+                        </label>
+                    </div>
+
+                    <div class="joystick-panel">
+                        <div class="joystick-sliders">
+                            <label>
+                                Forward / Back
+                                <input type="range" @bind="joystickForward" @bind:event="oninput" min="-1" max="1" step="0.05" />
+                                <output>@joystickForward.ToString("0.00")</output>
+                            </label>
+                            <label>
+                                Left / Right
+                                <input type="range" @bind="joystickRight" @bind:event="oninput" min="-1" max="1" step="0.05" />
+                                <output>@joystickRight.ToString("0.00")</output>
+                            </label>
+                            <label>
+                                Throttle
+                                <input type="range" @bind="joystickThrottle" @bind:event="oninput" min="-1" max="1" step="0.05" />
+                                <output>@joystickThrottle.ToString("0.00")</output>
+                            </label>
+                            <label>
+                                Yaw
+                                <input type="range" @bind="joystickYaw" @bind:event="oninput" min="-1" max="1" step="0.05" />
+                                <output>@joystickYaw.ToString("0.00")</output>
+                            </label>
+                        </div>
+
+                        <div class="button-row">
+                            <button class="primary-button" type="button" @onclick="StartVirtualJoystickStreamAsync" disabled="@(isBusy || isJoystickStreaming)">Start Stick Stream</button>
+                            <button type="button" @onclick="SendVirtualJoystickAsync" disabled="@isBusy">Send Once</button>
+                            <button class="stop-button" type="button" @onclick="StopVirtualJoystickStreamAsync" disabled="@isBusy">Center / Stop</button>
+                        </div>
+                    </div>
+
+                    <div class="button-pad">
+                        <button type="button" @onclick="MoveForwardAsync" disabled="@isBusy">Forward</button>
+                        <button type="button" @onclick="MoveLeftAsync" disabled="@isBusy">Left</button>
+                        <button class="stop-button" type="button" @onclick="StopAsync" disabled="@isBusy">Stop</button>
+                        <button type="button" @onclick="MoveRightAsync" disabled="@isBusy">Right</button>
+                        <button type="button" @onclick="MoveBackAsync" disabled="@isBusy">Back</button>
+                    </div>
+
+                    <div class="button-row">
+                        <button type="button" @onclick="MoveUpAsync" disabled="@isBusy">Up</button>
+                        <button type="button" @onclick="MoveDownAsync" disabled="@isBusy">Down</button>
+                        <button type="button" @onclick="YawLeftAsync" disabled="@isBusy">Yaw Left</button>
+                        <button type="button" @onclick="YawRightAsync" disabled="@isBusy">Yaw Right</button>
+                    </div>
+
+                    <div class="inline-fields">
+                        <label>
+                            Throttle PWM
+                            <input type="number" @bind="throttlePwm" min="1000" max="2000" step="10" />
+                        </label>
+                        <label>
+                            Duration
+                            <input type="number" @bind="throttleDuration" min="0" max="30" step="0.1" />
+                        </label>
+                    </div>
+
+                    <button type="button" @onclick="SendThrottleAsync" disabled="@isBusy">Send Throttle</button>
+                </div>
+
+                <div class="panel wide-panel">
+                    <div class="panel-heading">
+                        <h2>MAVLink Console</h2>
+                    </div>
+
+                    <label for="rawCommandText">Raw command</label>
+                    <textarea id="rawCommandText" @bind="rawCommandText" @bind:event="oninput" rows="4" spellcheck="false"></textarea>
+
+                    <div class="button-row">
+                        <button type="button" @onclick='() => SetRawCommandExample("22 0 0 0 0 0 0 5")'>Takeoff 5m</button>
+                        <button type="button" @onclick='() => SetRawCommandExample("400 1 0 0 0 0 0 0")'>Arm</button>
+                        <button type="button" @onclick='() => SetRawCommandExample("400 0 0 0 0 0 0 0")'>Disarm</button>
+                    </div>
+
+                    <button class="primary-button" type="button" @onclick="SendRawCommandAsync" disabled="@isBusy">Send Command</button>
+                </div>
+            </section>
+
+            <section class="telemetry-band">
+                <div>
+                    <p class="eyebrow">Last action</p>
+                    <strong>@status</strong>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(error))
+                {
+                    <pre class="error-output">@error</pre>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(response))
+                {
+                    <pre>@response</pre>
+                }
+            </section>
+        </div>
+
+        <aside class="sensor-sidebar">
+            <div class="sidebar-header">
+                <h2>📡 MAVLink Inspector</h2>
+                <button class="refresh-sensor-btn" @onclick="RefreshSensorData" disabled="@isBusy">⟳</button>
+            </div>
+
+            <div class="sensor-section instrument-section">
+                <div class="section-title">Attitude</div>
+                <div class="attitude-indicator" aria-label="Gyro level indicator">
+                    <div class="attitude-window">
+                        <div class="attitude-horizon" style="@GetAttitudeHorizonStyle()">
+                            <div class="sky-band"></div>
+                            <div class="ground-band"></div>
+                            <div class="horizon-line"></div>
+                            <div class="pitch-mark pitch-mark-up">+10</div>
+                            <div class="pitch-mark pitch-mark-down">-10</div>
+                        </div>
+                        <div class="aircraft-symbol">
+                            <span></span>
+                            <strong></strong>
+                            <span></span>
+                        </div>
+                        <div class="roll-scale">
+                            <span class="roll-tick tick-left"></span>
+                            <span class="roll-tick tick-center"></span>
+                            <span class="roll-tick tick-right"></span>
+                        </div>
+                    </div>
+                    <div class="instrument-readout">
+                        <span>Roll rate <strong>@sensorData.GyroX.ToString("0.00")</strong></span>
+                        <span>Pitch rate <strong>@sensorData.GyroY.ToString("0.00")</strong></span>
+                    </div>
                 </div>
             </div>
 
-            <div class="button-pad">
-                <button type="button" @onclick="MoveForwardAsync" disabled="@isBusy">Forward</button>
-                <button type="button" @onclick="MoveLeftAsync" disabled="@isBusy">Left</button>
-                <button class="stop-button" type="button" @onclick="StopAsync" disabled="@isBusy">Stop</button>
-                <button type="button" @onclick="MoveRightAsync" disabled="@isBusy">Right</button>
-                <button type="button" @onclick="MoveBackAsync" disabled="@isBusy">Back</button>
+            <div class="sensor-section">
+                <div class="section-title">📍 GPS</div>
+                <div class="sensor-item">
+                    <span class="sensor-label">Status:</span>
+                    <span class="sensor-value @(sensorData.GpsFix >= 3 ? "text-success" : "text-warning")">@GetGpsFixText(sensorData.GpsFix)</span>
+                </div>
+                <div class="sensor-item">
+                    <span class="sensor-label">Satellites:</span>
+                    <span class="sensor-value">@sensorData.GpsSatellites</span>
+                </div>
+                <div class="sensor-item">
+                    <span class="sensor-label">Latitude:</span>
+                    <span class="sensor-value">@sensorData.Latitude.ToString("0.000000")</span>
+                </div>
+                <div class="sensor-item">
+                    <span class="sensor-label">Longitude:</span>
+                    <span class="sensor-value">@sensorData.Longitude.ToString("0.000000")</span>
+                </div>
+                <div class="sensor-item">
+                    <span class="sensor-label">Altitude (MSL):</span>
+                    <span class="sensor-value">@sensorData.GpsAltitude.ToString("0.0") m</span>
+                </div>
+                <div class="sensor-item">
+                    <span class="sensor-label">Ground Speed:</span>
+                    <span class="sensor-value">@sensorData.GroundSpeed.ToString("0.00") m/s</span>
+                </div>
+                <div class="sensor-item">
+                    <span class="sensor-label">Heading:</span>
+                    <span class="sensor-value">@sensorData.Cog.ToString("0")°</span>
+                </div>
+                <div class="sensor-item">
+                    <span class="sensor-label">HDOP:</span>
+                    <span class="sensor-value">@sensorData.Hdop.ToString("0.00")</span>
+                </div>
             </div>
 
-            <div class="button-row">
-                <button type="button" @onclick="MoveUpAsync" disabled="@isBusy">Up</button>
-                <button type="button" @onclick="MoveDownAsync" disabled="@isBusy">Down</button>
-                <button type="button" @onclick="YawLeftAsync" disabled="@isBusy">Yaw Left</button>
-                <button type="button" @onclick="YawRightAsync" disabled="@isBusy">Yaw Right</button>
+            <div class="sensor-section">
+                <div class="section-title">📊 Altitude & Barometer</div>
+                <div class="sensor-item">
+                    <span class="sensor-label">Relative Alt:</span>
+                    <span class="sensor-value">@sensorData.RelativeAlt.ToString("0.00") m</span>
+                </div>
+                <div class="sensor-item">
+                    <span class="sensor-label">Absolute Alt:</span>
+                    <span class="sensor-value">@sensorData.AbsoluteAlt.ToString("0.0") m</span>
+                </div>
+                <div class="sensor-item">
+                    <span class="sensor-label">Pressure:</span>
+                    <span class="sensor-value">@sensorData.Pressure.ToString("0.0") hPa</span>
+                </div>
+                <div class="sensor-item">
+                    <span class="sensor-label">Temperature:</span>
+                    <span class="sensor-value">@sensorData.Temperature.ToString("0.0") °C</span>
+                </div>
             </div>
 
-            <div class="inline-fields">
-                <label>
-                    Throttle PWM
-                    <input type="number" @bind="throttlePwm" min="1000" max="2000" step="10" />
-                </label>
-                <label>
-                    Duration
-                    <input type="number" @bind="throttleDuration" min="0" max="30" step="0.1" />
-                </label>
+            <div class="sensor-section">
+                <div class="section-title">⚡ IMU (RAW)</div>
+                <div class="sensor-item">
+                    <span class="sensor-label">Accel X/Y/Z:</span>
+                    <span class="sensor-value">@sensorData.AccelX.ToString("0.00") / @sensorData.AccelY.ToString("0.00") / @sensorData.AccelZ.ToString("0.00")</span>
+                </div>
+                <div class="sensor-item">
+                    <span class="sensor-label">Gyro X/Y/Z:</span>
+                    <span class="sensor-value">@sensorData.GyroX.ToString("0.00") / @sensorData.GyroY.ToString("0.00") / @sensorData.GyroZ.ToString("0.00")</span>
+                </div>
+                <div class="sensor-item">
+                    <span class="sensor-label">Mag X/Y/Z:</span>
+                    <span class="sensor-value">@sensorData.MagX / @sensorData.MagY / @sensorData.MagZ</span>
+                </div>
             </div>
 
-            <button type="button" @onclick="SendThrottleAsync" disabled="@isBusy">Send Throttle</button>
-        </div>
-
-        <div class="panel wide-panel">
-            <div class="panel-heading">
-                <h2>MAVLink Console</h2>
+            <div class="sensor-section">
+                <div class="section-title">🧭 Compass</div>
+                <div class="compass-instrument" aria-label="Compass indicator">
+                    <div class="compass-pointer"></div>
+                    <div class="compass-rose" style="@GetCompassRoseStyle()">
+                        <span class="cardinal north">N</span>
+                        <span class="cardinal east">E</span>
+                        <span class="cardinal south">S</span>
+                        <span class="cardinal west">W</span>
+                        <span class="compass-ring"></span>
+                        <span class="compass-cross horizontal"></span>
+                        <span class="compass-cross vertical"></span>
+                    </div>
+                    <div class="compass-heading">@NormalizeHeading(sensorData.CompassHeading).ToString("000")°</div>
+                </div>
+                <div class="sensor-item">
+                    <span class="sensor-label">Heading:</span>
+                    <span class="sensor-value">@sensorData.CompassHeading.ToString("0")°</span>
+                </div>
             </div>
 
-            <label for="rawCommandText">Raw command</label>
-            <textarea id="rawCommandText" @bind="rawCommandText" @bind:event="oninput" rows="4" spellcheck="false"></textarea>
-
-            <div class="button-row">
-                <button type="button" @onclick='() => SetRawCommandExample("command_long 22 0 0 0 0 0 0 5")'>Takeoff 5m</button>
-                <button type="button" @onclick='() => SetRawCommandExample("command_long 400 1 0 0 0 0 0 0")'>Arm</button>
-                <button type="button" @onclick='() => SetRawCommandExample("command_long 400 0 0 0 0 0 0 0")'>Disarm</button>
+            <div class="sensor-update-time">
+                Last update: @sensorData.LastUpdate.ToString("HH:mm:ss")
             </div>
-
-            <button class="primary-button" type="button" @onclick="SendRawCommandAsync" disabled="@isBusy">Send Command</button>
-        </div>
-    </section>
-
-    <section class="telemetry-band">
-        <div>
-            <p class="eyebrow">Last action</p>
-            <strong>@status</strong>
-        </div>
-
-        @if (!string.IsNullOrWhiteSpace(error))
-        {
-            <pre class="error-output">@error</pre>
-        }
-
-        @if (!string.IsNullOrWhiteSpace(response))
-        {
-            <pre>@response</pre>
-        }
-
-        @if (!string.IsNullOrWhiteSpace(statusJson))
-        {
-            <pre>@statusJson</pre>
-        }
-    </section>
+        </aside>
+    </div>
 </div>
 
 @code {
     private readonly CancellationTokenSource statusCancellation = new();
+    private CancellationTokenSource? sensorPollingCancellation;
 
     private string status = "Ready";
     private string error = "";
     private string response = "";
-    private string statusJson = "";
-    private string rawCommandText = "command_long 22 0 0 0 0 0 0 5";
     private bool isBusy;
     private bool isConnected;
 
@@ -231,10 +362,85 @@
     private double joystickYaw;
     private bool isJoystickStreaming;
     private CancellationTokenSource? joystickCancellation;
+    private string rawCommandText = "22 0 0 0 0 0 0 5";
+
+    private DroneApiService.SensorData sensorData = new();
 
     protected override void OnInitialized()
     {
         _ = PollStatusAsync(statusCancellation.Token);
+        _ = PollSensorDataAsync();
+    }
+
+    private async Task PollSensorDataAsync()
+    {
+        sensorPollingCancellation = new CancellationTokenSource();
+        
+        try
+        {
+            while (!sensorPollingCancellation.Token.IsCancellationRequested)
+            {
+                await Task.Delay(500, sensorPollingCancellation.Token);
+                await RefreshSensorData();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private async Task RefreshSensorData()
+    {
+        if (!isConnected) return;
+
+        try
+        {
+            var telemetry = await Drone.GetTelemetry();
+            if (telemetry.Success && telemetry.Data != null)
+            {
+                sensorData = telemetry.Data;
+                sensorData.LastUpdate = DateTime.Now;
+            }
+        }
+        catch (Exception) { }
+    }
+
+    private static string GetGpsFixText(int fix)
+    {
+        return fix switch
+        {
+            0 => "No GPS",
+            1 => "No Fix",
+            2 => "2D Fix",
+            3 => "3D Fix",
+            4 => "DGPS",
+            5 => "RTK Float",
+            6 => "RTK Fixed",
+            _ => $"Fix {fix}"
+        };
+    }
+
+    private string GetAttitudeHorizonStyle()
+    {
+        var rollDegrees = Math.Clamp(sensorData.GyroX * 45.0, -50.0, 50.0);
+        var pitchPixels = Math.Clamp(sensorData.GyroY * -34.0, -44.0, 44.0);
+
+        return $"transform: translate(-50%, -50%) rotate({CssNumber(rollDegrees)}deg) translateY({CssNumber(pitchPixels)}px);";
+    }
+
+    private string GetCompassRoseStyle()
+    {
+        return $"transform: rotate({CssNumber(-NormalizeHeading(sensorData.CompassHeading))}deg);";
+    }
+
+    private static double NormalizeHeading(double heading)
+    {
+        var normalized = heading % 360.0;
+        return normalized < 0 ? normalized + 360.0 : normalized;
+    }
+
+    private static string CssNumber(double value)
+    {
+        return value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
     }
 
     private async Task Handle(string name, Func<Task<DroneApiService.ApiResponse<object>>> action)
@@ -252,12 +458,12 @@
             {
                 status = $"{name} OK";
                 response = result.ResponseBody ?? "";
-                await RefreshStatus(showErrors: false);
+                await RefreshStatus(false);
             }
             else
             {
                 status = $"{name} failed";
-                error = CombineError(result.ErrorMessage, result.ResponseBody);
+                error = result.ErrorMessage ?? result.ResponseBody ?? "Unknown error";
             }
         }
         finally
@@ -268,20 +474,17 @@
 
     private Task ConnectAsync()
     {
-        var trimmedConnectionString = connectionString.Trim();
-
-        if (string.IsNullOrWhiteSpace(trimmedConnectionString))
+        var trimmed = connectionString.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
         {
             status = "Connect blocked";
-            error = "Enter a MAVLink endpoint such as udpin:0.0.0.0:14551 or tcp:127.0.0.1:5763.";
-            response = "";
-            isConnected = false;
+            error = "Enter a MAVLink endpoint";
             return Task.CompletedTask;
         }
 
         return Handle("Connect", async () =>
         {
-            var result = await Drone.Connect(trimmedConnectionString, baudRate, heartbeat);
+            var result = await Drone.Connect(trimmed, baudRate, heartbeat);
             isConnected = result.Success;
             return result;
         });
@@ -293,7 +496,7 @@
         {
             var result = await Drone.Disconnect();
             isConnected = false;
-            statusJson = "";
+            sensorData = new DroneApiService.SensorData();
             return result;
         });
     }
@@ -301,7 +504,7 @@
     private Task SetModeAsync() => Handle("Set mode", () => Drone.SetMode(selectedMode));
     private Task ArmAsync() => Handle("Arm", Drone.Arm);
     private Task DisarmAsync() => Handle("Disarm", Drone.Disarm);
-    private Task TakeoffAsync() => Handle("Takeoff 5m", () => Drone.Takeoff(takeoffAltitudeMeters, armBeforeTakeoff));
+    private Task TakeoffAsync() => Handle("Takeoff", () => Drone.Takeoff(takeoffAltitudeMeters, armBeforeTakeoff));
     private Task LandAsync() => Handle("Land", Drone.Land);
     private Task StopAsync() => SendVelocityCommand("Stop", 0, 0, 0);
 
@@ -323,10 +526,7 @@
 
     private Task StartVirtualJoystickStreamAsync()
     {
-        if (isJoystickStreaming)
-        {
-            return Task.CompletedTask;
-        }
+        if (isJoystickStreaming) return Task.CompletedTask;
 
         joystickCancellation = new CancellationTokenSource();
         isJoystickStreaming = true;
@@ -352,10 +552,9 @@
     {
         try
         {
-            using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(100));
-
-            while (await timer.WaitForNextTickAsync(cancellationToken))
+            while (!cancellationToken.IsCancellationRequested)
             {
+                await Task.Delay(100, cancellationToken);
                 var result = await Drone.SendVirtualJoystick(
                     Math.Clamp(joystickForward * controlStrength, -1.0, 1.0),
                     Math.Clamp(joystickRight * controlStrength, -1.0, 1.0),
@@ -366,15 +565,13 @@
                 if (!result.Success)
                 {
                     status = "Virtual joystick failed";
-                    error = CombineError(result.ErrorMessage, result.ResponseBody);
+                    error = result.ErrorMessage ?? result.ResponseBody ?? "";
                     isJoystickStreaming = false;
                     break;
                 }
             }
         }
-        catch (OperationCanceledException)
-        {
-        }
+        catch (OperationCanceledException) { }
         finally
         {
             isJoystickStreaming = false;
@@ -384,23 +581,33 @@
 
     private Task SendRawCommandAsync()
     {
-        if (!TryParseRawCommand(rawCommandText, out var commandId, out var parameters, out var parseError))
+        var parts = rawCommandText.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length < 8)
         {
             status = "Raw command blocked";
-            error = parseError;
-            response = "";
+            error = "Need 8 numbers: command_id param1 param2 param3 param4 param5 param6 param7";
             return Task.CompletedTask;
         }
 
-        return Handle("Raw command", () => Drone.RawCommand(
-            commandId,
-            parameters[0],
-            parameters[1],
-            parameters[2],
-            parameters[3],
-            parameters[4],
-            parameters[5],
-            parameters[6]));
+        if (!int.TryParse(parts[0], out var cmdId))
+        {
+            status = "Raw command blocked";
+            error = "First value must be command ID (integer)";
+            return Task.CompletedTask;
+        }
+
+        var p = new double[7];
+        for (int i = 0; i < 7; i++)
+        {
+            if (!double.TryParse(parts[i + 1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out p[i]))
+            {
+                status = "Raw command blocked";
+                error = $"Parameter {i + 1} is not a number";
+                return Task.CompletedTask;
+            }
+        }
+
+        return Handle("Raw command", () => Drone.RawCommand(cmdId, p[0], p[1], p[2], p[3], p[4], p[5], p[6]));
     }
 
     private Task SendVelocityCommand(string name, double vx, double vy, double vz)
@@ -412,83 +619,16 @@
             Math.Clamp(controlDuration, 0.0, 5.0)));
     }
 
-    private void SetRawCommandExample(string command)
-    {
-        rawCommandText = command;
-    }
+    private void SetRawCommandExample(string command) => rawCommandText = command;
 
-    private static bool TryParseRawCommand(
-        string input,
-        out int commandId,
-        out double[] parameters,
-        out string errorMessage)
-    {
-        commandId = 0;
-        parameters = new double[7];
-        errorMessage = "";
-
-        var tokens = input
-            .Split(new[] { ' ', '\r', '\n', '\t', ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
-            .ToList();
-
-        if (tokens.Count > 0 && IsCommandLongAlias(tokens[0]))
-        {
-            tokens.RemoveAt(0);
-        }
-
-        if (tokens.Count == 0)
-        {
-            errorMessage = "Gib z.B. ein: command_long 22 0 0 0 0 0 0 5";
-            return false;
-        }
-
-        if (!int.TryParse(tokens[0], out commandId) || commandId <= 0)
-        {
-            errorMessage = "Der erste Wert muss eine MAVLink command_id groesser als 0 sein.";
-            return false;
-        }
-
-        for (var index = 1; index < tokens.Count && index <= 7; index++)
-        {
-            if (!TryParseDouble(tokens[index], out parameters[index - 1]))
-            {
-                errorMessage = $"Parameter {index} ist keine Zahl: {tokens[index]}";
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private static bool IsCommandLongAlias(string token)
-    {
-        return string.Equals(token, "command_long", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(token, "cmd_long", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(token, "command", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(token, "cmd", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool TryParseDouble(string value, out double parsed)
-    {
-        return double.TryParse(
-                value,
-                System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture,
-                out parsed)
-            || double.TryParse(value, out parsed);
-    }
-
-    private async Task RefreshStatus()
-    {
-        await RefreshStatus(showErrors: true);
-    }
+    private async Task RefreshStatus() => await RefreshStatus(true);
 
     private async Task RefreshStatus(bool showErrors)
     {
         try
         {
-            statusJson = await Drone.GetStatus();
-            isConnected = statusJson.Contains("\"connected\":true", StringComparison.OrdinalIgnoreCase);
+            var statusStr = await Drone.GetStatus();
+            isConnected = statusStr.Contains("\"connected\":true", StringComparison.OrdinalIgnoreCase);
         }
         catch (Exception ex)
         {
@@ -504,46 +644,25 @@
     {
         try
         {
-            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
-
-            while (await timer.WaitForNextTickAsync(cancellationToken))
+            while (!cancellationToken.IsCancellationRequested)
             {
-                if (!isConnected)
+                await Task.Delay(1000, cancellationToken);
+                if (isConnected)
                 {
-                    continue;
+                    await RefreshStatus(false);
+                    await InvokeAsync(StateHasChanged);
                 }
-
-                await RefreshStatus(showErrors: false);
-                await InvokeAsync(StateHasChanged);
             }
         }
-        catch (OperationCanceledException)
-        {
-        }
+        catch (OperationCanceledException) { }
     }
 
-    private static string CombineError(string? message, string? body)
-    {
-        if (string.IsNullOrWhiteSpace(body))
-        {
-            return message ?? "Unknown error";
-        }
-
-        if (string.IsNullOrWhiteSpace(message))
-        {
-            return body;
-        }
-
-        return $"{message}{Environment.NewLine}{body}";
-    }
-
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         joystickCancellation?.Cancel();
-        joystickCancellation?.Dispose();
         statusCancellation.Cancel();
-        statusCancellation.Dispose();
-        return ValueTask.CompletedTask;
+        sensorPollingCancellation?.Cancel();
+        await ValueTask.CompletedTask;
     }
 }
 
@@ -561,9 +680,400 @@
         display: flex;
         flex-direction: column;
         gap: 20px;
-        max-width: 1180px;
+        max-width: 1600px;
         margin: 0 auto;
-        padding: 22px 0 36px;
+        padding: 22px 20px 36px;
+    }
+
+    .main-layout {
+        display: flex;
+        gap: 20px;
+    }
+
+    .content-area {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .sensor-sidebar {
+        width: 340px;
+        flex-shrink: 0;
+        background: #171d23;
+        border: 1px solid #2b3540;
+        border-radius: 12px;
+        padding: 16px;
+        max-height: calc(100vh - 120px);
+        overflow-y: auto;
+    }
+
+    .sidebar-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid #2b3540;
+    }
+
+    .sidebar-header h2 {
+        margin: 0;
+        font-size: 1rem;
+    }
+
+    .refresh-sensor-btn {
+        min-height: 32px;
+        padding: 4px 12px;
+        font-size: 1.2rem;
+        background: #25313b;
+    }
+
+    .sensor-section {
+        margin-bottom: 16px;
+        padding: 10px;
+        background: #111820;
+        border-radius: 8px;
+        border-left: 3px solid #176b8f;
+    }
+
+    .section-title {
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #9fb1c1;
+        margin-bottom: 10px;
+    }
+
+    .sensor-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        padding: 6px 0;
+        border-bottom: 1px solid #2b3540;
+        font-size: 0.85rem;
+    }
+
+    .sensor-item:last-child {
+        border-bottom: none;
+    }
+
+    .sensor-label {
+        color: #9fb1c1;
+        font-weight: 500;
+    }
+
+    .sensor-value {
+        font-family: monospace;
+        font-weight: 600;
+        color: #e8edf2;
+    }
+
+    .text-success {
+        color: #4cc27a;
+    }
+
+    .text-warning {
+        color: #f4b83a;
+    }
+
+    .sensor-update-time {
+        margin-top: 16px;
+        padding-top: 12px;
+        text-align: center;
+        font-size: 0.7rem;
+        color: #6c7a8a;
+        border-top: 1px solid #2b3540;
+    }
+
+    .instrument-section {
+        border-left-color: #4cc27a;
+    }
+
+    .attitude-indicator,
+    .compass-instrument {
+        display: grid;
+        justify-items: center;
+        gap: 10px;
+    }
+
+    .attitude-window {
+        position: relative;
+        width: min(100%, 250px);
+        aspect-ratio: 1;
+        overflow: hidden;
+        border: 2px solid #40505f;
+        border-radius: 50%;
+        background: #0b1117;
+        box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.45);
+    }
+
+    .attitude-window::before {
+        content: "";
+        position: absolute;
+        inset: 12px;
+        z-index: 3;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 50%;
+        pointer-events: none;
+    }
+
+    .attitude-horizon {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 150%;
+        height: 150%;
+        transform-origin: center;
+        transition: transform 0.18s ease-out;
+    }
+
+    .sky-band,
+    .ground-band {
+        position: absolute;
+        left: 0;
+        width: 100%;
+        height: 50%;
+    }
+
+    .sky-band {
+        top: 0;
+        background: linear-gradient(180deg, #176b8f 0%, #2d9bc3 100%);
+    }
+
+    .ground-band {
+        bottom: 0;
+        background: linear-gradient(180deg, #8a5a2d 0%, #4d3423 100%);
+    }
+
+    .horizon-line {
+        position: absolute;
+        left: 0;
+        top: 50%;
+        width: 100%;
+        height: 2px;
+        background: rgba(255, 255, 255, 0.88);
+        box-shadow: 0 0 10px rgba(255, 255, 255, 0.28);
+    }
+
+    .pitch-mark {
+        position: absolute;
+        left: 50%;
+        width: 64px;
+        margin-left: -32px;
+        border-top: 2px solid rgba(255, 255, 255, 0.78);
+        color: rgba(255, 255, 255, 0.82);
+        font-family: monospace;
+        font-size: 0.68rem;
+        text-align: center;
+    }
+
+    .pitch-mark-up {
+        top: calc(50% - 34px);
+    }
+
+    .pitch-mark-down {
+        top: calc(50% + 34px);
+    }
+
+    .aircraft-symbol {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        z-index: 5;
+        display: grid;
+        grid-template-columns: 58px 10px 58px;
+        align-items: center;
+        gap: 5px;
+        transform: translate(-50%, -50%);
+    }
+
+    .aircraft-symbol span,
+    .aircraft-symbol strong {
+        display: block;
+        height: 4px;
+        background: #f2c94c;
+        box-shadow: 0 0 8px rgba(242, 201, 76, 0.55);
+    }
+
+    .aircraft-symbol strong {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+    }
+
+    .roll-scale {
+        position: absolute;
+        inset: 10px;
+        z-index: 4;
+        border-radius: 50%;
+        pointer-events: none;
+    }
+
+    .roll-tick {
+        position: absolute;
+        left: 50%;
+        top: 4px;
+        width: 2px;
+        height: 14px;
+        background: rgba(255, 255, 255, 0.8);
+        transform-origin: 1px calc(125px - 14px);
+    }
+
+    .tick-center {
+        transform: translateX(-50%);
+    }
+
+    .tick-left {
+        transform: translateX(-50%) rotate(-35deg);
+    }
+
+    .tick-right {
+        transform: translateX(-50%) rotate(35deg);
+    }
+
+    .instrument-readout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        width: 100%;
+        font-size: 0.72rem;
+        color: #9fb1c1;
+    }
+
+    .instrument-readout span {
+        display: grid;
+        gap: 2px;
+        padding: 7px 8px;
+        border: 1px solid #2b3540;
+        border-radius: 6px;
+        background: #0f1419;
+    }
+
+    .instrument-readout strong {
+        color: #e8edf2;
+        font-family: monospace;
+        font-size: 0.86rem;
+    }
+
+    .compass-instrument {
+        position: relative;
+        width: min(100%, 230px);
+        aspect-ratio: 1;
+        margin: 2px auto 10px;
+        border: 2px solid #40505f;
+        border-radius: 50%;
+        background: radial-gradient(circle at center, #1d2730 0 34%, #0f1419 35% 100%);
+        box-shadow: inset 0 0 26px rgba(0, 0, 0, 0.5);
+    }
+
+    .compass-pointer {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        z-index: 5;
+        width: 5px;
+        height: 78px;
+        border-radius: 999px;
+        background: #f2c94c;
+        transform: translate(-50%, -100%);
+        transform-origin: 50% 100%;
+        filter: drop-shadow(0 0 7px rgba(242, 201, 76, 0.5));
+    }
+
+    .compass-pointer::before {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: -10px;
+        width: 0;
+        height: 0;
+        border-left: 10px solid transparent;
+        border-right: 10px solid transparent;
+        border-bottom: 18px solid #f2c94c;
+        transform: translateX(-50%);
+    }
+
+    .compass-rose {
+        position: absolute;
+        inset: 16px;
+        border-radius: 50%;
+        transition: transform 0.18s ease-out;
+    }
+
+    .compass-ring {
+        position: absolute;
+        inset: 0;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        border-radius: 50%;
+    }
+
+    .compass-cross {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        background: rgba(255, 255, 255, 0.16);
+        transform: translate(-50%, -50%);
+    }
+
+    .compass-cross.horizontal {
+        width: 100%;
+        height: 1px;
+    }
+
+    .compass-cross.vertical {
+        width: 1px;
+        height: 100%;
+    }
+
+    .cardinal {
+        position: absolute;
+        color: #d9e4ee;
+        font-weight: 900;
+        font-size: 1rem;
+        line-height: 1;
+    }
+
+    .north {
+        left: 50%;
+        top: 7px;
+        color: #ff6f6f;
+        transform: translateX(-50%);
+    }
+
+    .east {
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+
+    .south {
+        left: 50%;
+        bottom: 7px;
+        transform: translateX(-50%);
+    }
+
+    .west {
+        left: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+
+    .compass-heading {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        z-index: 6;
+        min-width: 70px;
+        padding: 7px 8px;
+        border: 1px solid #34404c;
+        border-radius: 6px;
+        background: rgba(15, 20, 25, 0.92);
+        color: #f4f7fa;
+        font-family: monospace;
+        font-size: 1.1rem;
+        font-weight: 800;
+        text-align: center;
+        transform: translate(-50%, -50%);
     }
 
     .drone-header,
@@ -752,10 +1262,12 @@
         color: #f4f7fa;
         font-weight: 800;
         cursor: pointer;
+        transition: all 0.2s;
     }
 
     button:hover:not(:disabled) {
         background: #31404d;
+        transform: translateY(-1px);
     }
 
     button:disabled {
@@ -819,18 +1331,25 @@
         color: #ffb8bf;
     }
 
+    @@media (max-width: 1024px) {
+        .main-layout {
+            flex-direction: column;
+        }
+        .sensor-sidebar {
+            width: auto;
+        }
+    }
+
     @@media (max-width: 760px) {
         .drone-header {
             align-items: flex-start;
             flex-direction: column;
         }
-
         .control-grid,
         .wide-panel {
             grid-template-columns: 1fr;
             grid-column: auto;
         }
-
         .button-pad {
             max-width: none;
             grid-template-columns: repeat(3, minmax(0, 1fr));
