@@ -173,29 +173,6 @@
                             </div>
                         </div>
 
-                        <div class="joystick-sliders">
-                            <label>
-                                Forward / Back
-                                <input type="range" @bind="joystickForward" @bind:event="oninput" min="-1" max="1" step="0.05" />
-                                <output>@joystickForward.ToString("0.00")</output>
-                            </label>
-                            <label>
-                                Left / Right
-                                <input type="range" @bind="joystickRight" @bind:event="oninput" min="-1" max="1" step="0.05" />
-                                <output>@joystickRight.ToString("0.00")</output>
-                            </label>
-                            <label>
-                                Throttle
-                                <input type="range" @bind="joystickThrottle" @bind:event="oninput" min="-1" max="1" step="0.05" />
-                                <output>@joystickThrottle.ToString("0.00")</output>
-                            </label>
-                            <label>
-                                Yaw
-                                <input type="range" @bind="joystickYaw" @bind:event="oninput" min="-1" max="1" step="0.05" />
-                                <output>@joystickYaw.ToString("0.00")</output>
-                            </label>
-                        </div>
-
                         @if (HasPanelMessage("live"))
                         {
                             <div class="@PanelMessageClass">
@@ -1506,32 +1483,6 @@
         font: inherit;
         font-weight: 800;
         text-align: center;
-    }
-
-    .joystick-sliders {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 12px;
-    }
-
-    .joystick-sliders label {
-        display: grid;
-        grid-template-columns: 1fr auto;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .joystick-sliders input {
-        grid-column: 1 / -1;
-        min-height: 28px;
-        padding: 0;
-    }
-
-    .joystick-sliders output {
-        min-width: 48px;
-        color: #f4f7fa;
-        text-align: right;
-        font-variant-numeric: tabular-nums;
     }
 
     .panel-message {
