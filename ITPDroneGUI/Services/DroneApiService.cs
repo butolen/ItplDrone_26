@@ -346,4 +346,114 @@ public class DroneApiService
             Param7 = param7,
         });
     }
+
+    public class SensorData
+    {
+        public DateTime LastUpdate { get; set; } = DateTime.Now;
+
+        [JsonPropertyName("gps_fix")]
+        public int GpsFix { get; set; }
+
+        [JsonPropertyName("gps_satellites")]
+        public int GpsSatellites { get; set; }
+
+        [JsonPropertyName("latitude")]
+        public double Latitude { get; set; }
+
+        [JsonPropertyName("longitude")]
+        public double Longitude { get; set; }
+
+        [JsonPropertyName("gps_altitude")]
+        public double GpsAltitude { get; set; }
+
+        [JsonPropertyName("ground_speed")]
+        public double GroundSpeed { get; set; }
+
+        [JsonPropertyName("cog")]
+        public double Cog { get; set; }
+
+        [JsonPropertyName("hdop")]
+        public double Hdop { get; set; }
+
+        [JsonPropertyName("relative_alt")]
+        public double RelativeAlt { get; set; }
+
+        [JsonPropertyName("absolute_alt")]
+        public double AbsoluteAlt { get; set; }
+
+        [JsonPropertyName("pressure")]
+        public double Pressure { get; set; }
+
+        [JsonPropertyName("accel_x")]
+        public double AccelX { get; set; }
+
+        [JsonPropertyName("accel_y")]
+        public double AccelY { get; set; }
+
+        [JsonPropertyName("accel_z")]
+        public double AccelZ { get; set; }
+
+        [JsonPropertyName("gyro_x")]
+        public double GyroX { get; set; }
+
+        [JsonPropertyName("gyro_y")]
+        public double GyroY { get; set; }
+
+        [JsonPropertyName("gyro_z")]
+        public double GyroZ { get; set; }
+
+        [JsonPropertyName("mag_x")]
+        public int MagX { get; set; }
+
+        [JsonPropertyName("mag_y")]
+        public int MagY { get; set; }
+
+        [JsonPropertyName("mag_z")]
+        public int MagZ { get; set; }
+
+        [JsonPropertyName("temperature")]
+        public double Temperature { get; set; }
+
+        [JsonPropertyName("compass_heading")]
+        public double CompassHeading { get; set; }
+    }
+
+    public async Task<ApiResponse<SensorData>> GetTelemetry()
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"{_apiBaseUrl}/telemetry");
+            var responseBody = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new ApiResponse<SensorData>
+                {
+                    Success = false,
+                    ErrorMessage = $"HTTP {response.StatusCode}",
+                    ResponseBody = responseBody
+                };
+            }
+
+            var data = System.Text.Json.JsonSerializer.Deserialize<SensorData>(responseBody, new System.Text.Json.JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            return new ApiResponse<SensorData>
+            {
+                Success = true,
+                Data = data,
+                ResponseBody = responseBody
+            };
+        }
+        catch (Exception ex)
+        {
+            return new ApiResponse<SensorData>
+            {
+                Success = false,
+                ErrorMessage = ex.Message
+            };
+        }
+    }
 }

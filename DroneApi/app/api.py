@@ -77,6 +77,11 @@ def get_status() -> dict:
     return drone_controller.get_status()
 
 
+@app.get("/telemetry")
+def get_telemetry() -> dict:
+    return drone_controller.get_telemetry()
+
+
 @app.post("/mode")
 def set_mode(request: ModeRequest) -> dict:
     try:
