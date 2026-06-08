@@ -22,7 +22,8 @@ dotnet run
 
 Der Launcher startet:
 - ArduCopter SITL in WSL
-- die MAVLink TCP-Ausgaenge 5763, 5764 und 5765
+- den direkten ArduCopter-Port 5763 fuer WebGUI/API
+- die MAVProxy TCP-Ausgaenge 5764 und 5765 fuer QGroundControl
 - die Python-API
 - die Blazor-WebGUI
 
@@ -43,7 +44,6 @@ cd ~/ardupilot/ArduCopter
 
 Wenn die MAVProxy-Konsole offen ist, diese drei TCP-Ausgaenge hinzufuegen:
 
-output add tcpin:0.0.0.0:5763
 output add tcpin:0.0.0.0:5764
 output add tcpin:0.0.0.0:5765
 
@@ -56,6 +56,7 @@ Hinweis:
 - 192.168.240.1 ist oft die Windows-Seite vom WSL-Netz.
 - 192.168.43.1 muss durch die echte Handy-IP ersetzt werden, falls du UDP nutzt.
 - Fuer die WebGUI bleibt TCP wichtig: tcp:127.0.0.1:5763.
+- 5763 nicht als MAVProxy-output add setzen: ArduCopter belegt diesen Port selbst als SERIAL2.
 
 
 2) Windows PowerShell als Administrator: TCP-Ports von Windows nach WSL weiterleiten
@@ -63,6 +64,8 @@ Hinweis:
 
 $wslIp = (wsl hostname -I).Trim().Split()[0]
 
+netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=5760
+netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=5762
 netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=5763
 netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=5764
 netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=5765
@@ -129,7 +132,7 @@ set home 48.411008, 15.593409
 Port-Merker
 -----------
 
-5763 = WebGUI/API
-5764 = QGroundControl PC
-5765 = QGroundControl Handy
+5763 = WebGUI/API direkt an ArduCopter SERIAL2
+5764 = QGroundControl PC via MAVProxy
+5765 = QGroundControl Handy via MAVProxy
 14550/14551 = nur optionale UDP-Ausgaenge

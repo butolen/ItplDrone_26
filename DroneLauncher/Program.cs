@@ -39,7 +39,7 @@ try
 
     if (!options.SkipSitl)
     {
-        startedProcesses.Add(StartSitl());
+        startedProcesses.AddRange(await StartSitlAsync());
     }
 
     if (!options.SkipApi)
@@ -55,9 +55,9 @@ try
     }
 
     Console.WriteLine();
-    Console.WriteLine("Laeuft. WebGUI/API: tcp:127.0.0.1:5763");
-    Console.WriteLine("PC-QGroundControl: 127.0.0.1:5764");
-    Console.WriteLine("Handy-QGroundControl: <Windows-PC-IP>:5765");
+    Console.WriteLine("Laeuft. WebGUI/API direkt: tcp:127.0.0.1:5763");
+    Console.WriteLine("PC-QGroundControl via MAVProxy: 127.0.0.1:5764");
+    Console.WriteLine("Handy-QGroundControl via MAVProxy: <Windows-PC-IP>:5765");
     Console.WriteLine();
     Console.WriteLine("Zum Beenden: q oder Ctrl+C.");
 
@@ -127,6 +127,11 @@ async Task ConfigurePortProxyAsync()
 
     Console.WriteLine($"[ports] WSL-IP: {wslIp}");
 
+    foreach (var stalePort in new[] { 5760, 5762 })
+    {
+        await RunBestEffortAsync("netsh", ["interface", "portproxy", "delete", "v4tov4", $"listenaddress=0.0.0.0", $"listenport={stalePort}"], repoRoot);
+    }
+
     foreach (var port in new[] { WebGuiPort, PcQgcPort, PhoneQgcPort })
     {
         await RunBestEffortAsync("netsh", ["interface", "portproxy", "delete", "v4tov4", $"listenaddress=0.0.0.0", $"listenport={port}"], repoRoot);
@@ -138,21 +143,40 @@ async Task ConfigurePortProxyAsync()
     Console.WriteLine("[ports] Portproxy und Firewall-Regeln sind eingerichtet.");
 }
 
-ManagedProcess StartSitl()
+async Task<IReadOnlyList<ManagedProcess>> StartSitlAsync()
 {
-    var sitlCommand =
-        "cd ~/ardupilot/ArduCopter && " +
-        "../Tools/autotest/sim_vehicle.py -v ArduCopter -f quad --console --wipe --location=MeinStandort " +
-        $"--out=tcpin:0.0.0.0:{WebGuiPort} " +
-        $"--out=tcpin:0.0.0.0:{PcQgcPort} " +
-        $"--out=tcpin:0.0.0.0:{PhoneQgcPort}";
+    Console.WriteLine("[sitl] Baue/pruefe ArduCopter SITL...");
+    var buildResult = await RunCaptureAsync(
+        "wsl.exe",
+        ["bash", "-lc", "cd ~/ardupilot && ./waf configure --board sitl && ./waf build --target bin/arducopter"],
+        repoRoot);
 
-    if (options.WithUdp)
+    if (buildResult.ExitCode != 0)
     {
-        sitlCommand += " --out=udp:192.168.240.1:14550";
+        Console.WriteLine(buildResult.Output);
+        throw new InvalidOperationException("ArduCopter SITL konnte nicht gebaut werden.");
     }
 
-    return StartManaged("sitl", "wsl.exe", ["bash", "-lc", sitlCommand], repoRoot);
+    Console.WriteLine("[sitl] Build OK.");
+    await StopSitlInWslAsync();
+
+    var udpOutput = options.WithUdp
+        ? " --out udp:192.168.240.1:14550"
+        : "";
+
+    var vehicleCommand =
+        "cd ~/ardupilot/ArduCopter && " +
+        "tail -f /dev/null | ../build/sitl/bin/arducopter -w --model + --speedup 1 --slave 0 --defaults ../Tools/autotest/default_params/copter.parm --sim-address=127.0.0.1 -I0 --home 48.411008,15.593409000000008,180.0,0.0";
+
+    var mavProxyCommand =
+        "cd ~/ardupilot/ArduCopter && " +
+        $"exec mavproxy.py --daemon --retries 20 --master tcp:127.0.0.1:5760 --sitl 127.0.0.1:5501 --out tcpin:0.0.0.0:{PcQgcPort} --out tcpin:0.0.0.0:{PhoneQgcPort}{udpOutput}";
+
+    var vehicle = StartManaged("arducopter", "wsl.exe", ["bash", "-lc", vehicleCommand], repoRoot);
+    await Task.Delay(TimeSpan.FromSeconds(3));
+    var mavProxy = StartManaged("mavproxy", "wsl.exe", ["bash", "-lc", mavProxyCommand], repoRoot);
+
+    return [vehicle, mavProxy];
 }
 
 async Task InstallApiRequirementsAsync()
@@ -297,7 +321,7 @@ async Task StopSitlInWslAsync()
 
     await RunBestEffortAsync(
         "wsl.exe",
-        ["bash", "-lc", "pkill -f 'sim_vehicle.py.*ArduCopter' || true; pkill -f 'MAVProxy' || true; pkill -f 'arducopter' || true"],
+        ["bash", "-lc", "pkill -f '[s]im_vehicle.py.*ArduCopter' || true; pkill -f '[m]avproxy.py' || true; pkill -x arducopter || true"],
         repoRoot);
 }
 

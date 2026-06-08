@@ -13,3 +13,7 @@ C:\Users\manue\Documents\GitHub\ItplDrone_26\DroneLauncher\obj\Debug\net9.0\refi
 C:\Users\manue\Documents\GitHub\ItplDrone_26\DroneLauncher\obj\Debug\net9.0\DroneLauncher.pdb
 C:\Users\manue\Documents\GitHub\ItplDrone_26\DroneLauncher\obj\Debug\net9.0\DroneLauncher.genruntimeconfig.cache
 C:\Users\manue\Documents\GitHub\ItplDrone_26\DroneLauncher\obj\Debug\net9.0\ref\DroneLauncher.dll
+C:\Users\manue\AppData\Local\Temp\DroneForgeLauncherBuild\DroneLauncher.deps.json
+C:\Users\manue\AppData\Local\Temp\DroneForgeLauncherBuild\DroneLauncher.runtimeconfig.json
+C:\Users\manue\AppData\Local\Temp\DroneForgeLauncherBuild\DroneLauncher.dll
+C:\Users\manue\AppData\Local\Temp\DroneForgeLauncherBuild\DroneLauncher.pdb

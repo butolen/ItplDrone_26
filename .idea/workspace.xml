@@ -10,7 +10,44 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="40043bf5-9493-48d5-bc99-c5202c9d720c" name="Changes" comment="" />
+    <list default="true" id="40043bf5-9493-48d5-bc99-c5202c9d720c" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/DroneLauncher/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/DroneLauncher/Program.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/DroneLauncher/bin/Debug/net9.0/DroneLauncher.dll" beforeDir="false" afterPath="$PROJECT_DIR$/DroneLauncher/bin/Debug/net9.0/DroneLauncher.dll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/DroneLauncher/bin/Debug/net9.0/DroneLauncher.exe" beforeDir="false" afterPath="$PROJECT_DIR$/DroneLauncher/bin/Debug/net9.0/DroneLauncher.exe" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/DroneLauncher/bin/Debug/net9.0/DroneLauncher.pdb" beforeDir="false" afterPath="$PROJECT_DIR$/DroneLauncher/bin/Debug/net9.0/DroneLauncher.pdb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/DroneLauncher/obj/Debug/net9.0/DroneLauncher.AssemblyInfo.cs" beforeDir="false" afterPath="$PROJECT_DIR$/DroneLauncher/obj/Debug/net9.0/DroneLauncher.AssemblyInfo.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/DroneLauncher/obj/Debug/net9.0/DroneLauncher.AssemblyInfoInputs.cache" beforeDir="false" afterPath="$PROJECT_DIR$/DroneLauncher/obj/Debug/net9.0/DroneLauncher.AssemblyInfoInputs.cache" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/DroneLauncher/obj/Debug/net9.0/DroneLauncher.dll" beforeDir="false" afterPath="$PROJECT_DIR$/DroneLauncher/obj/Debug/net9.0/DroneLauncher.dll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/DroneLauncher/obj/Debug/net9.0/DroneLauncher.pdb" beforeDir="false" afterPath="$PROJECT_DIR$/DroneLauncher/obj/Debug/net9.0/DroneLauncher.pdb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/DroneLauncher/obj/Debug/net9.0/DroneLauncher.sourcelink.json" beforeDir="false" afterPath="$PROJECT_DIR$/DroneLauncher/obj/Debug/net9.0/DroneLauncher.sourcelink.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/DroneLauncher/obj/Debug/net9.0/apphost.exe" beforeDir="false" afterPath="$PROJECT_DIR$/DroneLauncher/obj/Debug/net9.0/apphost.exe" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/DroneLauncher/obj/Debug/net9.0/ref/DroneLauncher.dll" beforeDir="false" afterPath="$PROJECT_DIR$/DroneLauncher/obj/Debug/net9.0/ref/DroneLauncher.dll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/DroneLauncher/obj/Debug/net9.0/refint/DroneLauncher.dll" beforeDir="false" afterPath="$PROJECT_DIR$/DroneLauncher/obj/Debug/net9.0/refint/DroneLauncher.dll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/Data/droneforge.db" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/Data/droneforge.db" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/bin/Debug/net9.0/ITPDroneGUI.deps.json" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/bin/Debug/net9.0/ITPDroneGUI.deps.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/bin/Debug/net9.0/ITPDroneGUI.dll" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/bin/Debug/net9.0/ITPDroneGUI.dll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/bin/Debug/net9.0/ITPDroneGUI.exe" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/bin/Debug/net9.0/ITPDroneGUI.exe" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/bin/Debug/net9.0/ITPDroneGUI.pdb" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/bin/Debug/net9.0/ITPDroneGUI.pdb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.AssemblyInfo.cs" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.AssemblyInfo.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.AssemblyInfoInputs.cache" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.AssemblyInfoInputs.cache" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.assets.cache" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.assets.cache" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.csproj.CoreCompileInputs.cache" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.csproj.CoreCompileInputs.cache" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.csproj.FileListAbsolute.txt" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.csproj.FileListAbsolute.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.dll" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.dll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.pdb" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.pdb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.sourcelink.json" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ITPDroneGUI.sourcelink.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/apphost.exe" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/apphost.exe" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ref/ITPDroneGUI.dll" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/ref/ITPDroneGUI.dll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/refint/ITPDroneGUI.dll" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/refint/ITPDroneGUI.dll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/rjsmcshtml.dswa.cache.json" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/rjsmcshtml.dswa.cache.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/rjsmrazor.dswa.cache.json" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/rjsmrazor.dswa.cache.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/rpswa.dswa.cache.json" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/Debug/net9.0/rpswa.dswa.cache.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/ITPDroneGUI.csproj.nuget.dgspec.json" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/ITPDroneGUI.csproj.nuget.dgspec.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/ITPDroneGUI.csproj.nuget.g.targets" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/ITPDroneGUI.csproj.nuget.g.targets" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/project.assets.json" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/project.assets.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ITPDroneGUI/obj/project.nuget.cache" beforeDir="false" afterPath="$PROJECT_DIR$/ITPDroneGUI/obj/project.nuget.cache" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -35,14 +72,14 @@
   }
 }</component>
   <component name="HighlightingSettingsPerFile">
-    <setting file="file://$PROJECT_DIR$/DroneLauncher/Program.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/DroneLauncher/Program.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/ITPDroneGUI/Components/App.razor" root0="SKIP_HIGHLIGHTING" root1="FORCE_HIGHLIGHTING" root2="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/ITPDroneGUI/Components/Layout/MainLayout.razor" root0="SKIP_HIGHLIGHTING" root1="FORCE_HIGHLIGHTING" root2="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/ITPDroneGUI/Components/Pages/Home.razor" root0="FORCE_HIGHLIGHTING" root1="FORCE_HIGHLIGHTING" root2="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/ITPDroneGUI/Components/Pages/Procedure.razor" root0="FORCE_HIGHLIGHTING" root1="FORCE_HIGHLIGHTING" root2="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/ITPDroneGUI/Components/Pages/Home.razor" root0="SKIP_HIGHLIGHTING" root1="FORCE_HIGHLIGHTING" root2="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/ITPDroneGUI/Components/Pages/Procedure.razor" root0="SKIP_HIGHLIGHTING" root1="FORCE_HIGHLIGHTING" root2="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/ITPDroneGUI/Components/_Imports.razor" root0="SKIP_HIGHLIGHTING" root1="FORCE_HIGHLIGHTING" root2="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/ITPDroneGUI/Model/ConnectRequest.cs" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/ITPDroneGUI/Program.cs" root0="SKIP_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/ITPDroneGUI/Program.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/ITPDroneGUI/Services/DroneApiService.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/ITPDroneGUI/appsettings.json" root0="FORCE_HIGHLIGHTING" />
   </component>
@@ -158,6 +195,7 @@
       <workItem from="1779191146453" duration="5239000" />
       <workItem from="1779793902670" duration="3633000" />
       <workItem from="1780293343993" duration="4976000" />
+      <workItem from="1780387734060" duration="2362000" />
     </task>
     <servers />
   </component>
