@@ -2,3 +2,4 @@ pymavlink
 fastapi
 uvicorn
 pydantic
+pymongo

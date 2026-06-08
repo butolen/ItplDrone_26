@@ -72,6 +72,12 @@ class LocalPositionRequest(BaseModel):
     z: float
 
 
+class GlobalPositionRequest(BaseModel):
+    latitude_deg: float = Field(..., ge=-90.0, le=90.0)
+    longitude_deg: float = Field(..., ge=-180.0, le=180.0)
+    altitude_meters: float = Field(default=5.0, ge=0.0, le=100.0)
+
+
 class YawRequest(BaseModel):
     yaw_degrees: float
     yaw_speed_deg_per_sec: float = Field(default=20.0, gt=0.0)
@@ -87,3 +93,32 @@ class RawCommandRequest(BaseModel):
     param5: float = 0.0
     param6: float = 0.0
     param7: float = 0.0
+
+
+class StoredCommandRequest(BaseModel):
+    command: str = Field(..., min_length=1, max_length=400)
+    order_index: int = Field(default=0, ge=0)
+    parameters: dict = Field(default_factory=dict)
+
+
+class SequenceCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=45)
+    commands: list[StoredCommandRequest] = Field(default_factory=list)
+
+
+class RoutePointRequest(BaseModel):
+    latitude: float = Field(..., ge=-90.0, le=90.0)
+    longitude: float = Field(..., ge=-180.0, le=180.0)
+    altitude_meters: float = Field(default=5.0, ge=0.0, le=100.0)
+    order_index: int = Field(default=0, ge=0)
+    depends_on_point_id: str | None = None
+
+
+class RouteCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=45)
+    sequence_id: str | None = None
+    points: list[RoutePointRequest] = Field(default_factory=list)
+
+
+class ExecuteRouteRequest(BaseModel):
+    wait_seconds_between_points: float = Field(default=0.2, ge=0.0, le=10.0)

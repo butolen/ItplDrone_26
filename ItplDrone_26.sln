@@ -1,0 +1,110 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ITPDroneGUI", "ITPDroneGUI\ITPDroneGUI.csproj", "{1398F020-5299-43A7-885C-E5207567AE64}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DroneLauncher", "DroneLauncher\DroneLauncher.csproj", "{48F55855-C631-4439-9592-580B92D7490B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "DroneApi", "DroneApi", "{6F7F1D2A-8C92-4D7F-86E7-7B9D3A4615A2}"
+	ProjectSection(SolutionItems) = preProject
+		DroneApi\README.md = DroneApi\README.md
+		DroneApi\requirements.txt = DroneApi\requirements.txt
+		DroneApi\main.py = DroneApi\main.py
+		DroneApi\app\api.py = DroneApi\app\api.py
+		DroneApi\app\command_executor.py = DroneApi\app\command_executor.py
+		DroneApi\app\drone_controller.py = DroneApi\app\drone_controller.py
+		DroneApi\models\models.py = DroneApi\models\models.py
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "DB", "DB", "{818B9969-A01A-47FC-B8E2-7B44C5558D01}"
+	ProjectSection(SolutionItems) = preProject
+		DroneApi\DB\README.md = DroneApi\DB\README.md
+		DroneApi\DB\Dockerfile = DroneApi\DB\Dockerfile
+		DroneApi\DB\docker-compose.yml = DroneApi\DB\docker-compose.yml
+		DroneApi\DB\repository.py = DroneApi\DB\repository.py
+		DroneApi\DB\__init__.py = DroneApi\DB\__init__.py
+		DroneApi\DB\initdb.d\001_schema.js = DroneApi\DB\initdb.d\001_schema.js
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Root Files", "Root Files", "{40F3AF2A-089D-4784-8AF1-35FBD4B04453}"
+	ProjectSection(SolutionItems) = preProject
+		.gitignore = .gitignore
+		Start.txt = Start.txt
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".venv", ".venv", "{762FB55A-D534-FBA3-4F64-743CBAF8F9AD}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Lib", "Lib", "{36C42C7B-40BA-AB82-E2DA-C99A74D3B3DE}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "site-packages", "site-packages", "{555BA4F3-1904-870C-8707-8C9DB32DDB25}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "pymavlink", "pymavlink", "{5A2B3DD8-6913-0030-6B65-294AC8F2F6E2}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "generator", "generator", "{DC0216E4-F2E5-B3F9-CB13-0EF782DD989C}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "CS", "CS", "{34863F4B-D8F8-43B7-78BA-BC81C48672A7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MAVLink", ".venv\Lib\site-packages\pymavlink\generator\CS\MAVLink.csproj", "{6C9A74B5-D926-457E-8B7E-17211F67C320}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1398F020-5299-43A7-885C-E5207567AE64}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1398F020-5299-43A7-885C-E5207567AE64}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1398F020-5299-43A7-885C-E5207567AE64}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{1398F020-5299-43A7-885C-E5207567AE64}.Debug|x64.Build.0 = Debug|Any CPU
+		{1398F020-5299-43A7-885C-E5207567AE64}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{1398F020-5299-43A7-885C-E5207567AE64}.Debug|x86.Build.0 = Debug|Any CPU
+		{1398F020-5299-43A7-885C-E5207567AE64}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1398F020-5299-43A7-885C-E5207567AE64}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1398F020-5299-43A7-885C-E5207567AE64}.Release|x64.ActiveCfg = Release|Any CPU
+		{1398F020-5299-43A7-885C-E5207567AE64}.Release|x64.Build.0 = Release|Any CPU
+		{1398F020-5299-43A7-885C-E5207567AE64}.Release|x86.ActiveCfg = Release|Any CPU
+		{1398F020-5299-43A7-885C-E5207567AE64}.Release|x86.Build.0 = Release|Any CPU
+		{48F55855-C631-4439-9592-580B92D7490B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{48F55855-C631-4439-9592-580B92D7490B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{48F55855-C631-4439-9592-580B92D7490B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{48F55855-C631-4439-9592-580B92D7490B}.Debug|x64.Build.0 = Debug|Any CPU
+		{48F55855-C631-4439-9592-580B92D7490B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{48F55855-C631-4439-9592-580B92D7490B}.Debug|x86.Build.0 = Debug|Any CPU
+		{48F55855-C631-4439-9592-580B92D7490B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{48F55855-C631-4439-9592-580B92D7490B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{48F55855-C631-4439-9592-580B92D7490B}.Release|x64.ActiveCfg = Release|Any CPU
+		{48F55855-C631-4439-9592-580B92D7490B}.Release|x64.Build.0 = Release|Any CPU
+		{48F55855-C631-4439-9592-580B92D7490B}.Release|x86.ActiveCfg = Release|Any CPU
+		{48F55855-C631-4439-9592-580B92D7490B}.Release|x86.Build.0 = Release|Any CPU
+		{6C9A74B5-D926-457E-8B7E-17211F67C320}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6C9A74B5-D926-457E-8B7E-17211F67C320}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6C9A74B5-D926-457E-8B7E-17211F67C320}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6C9A74B5-D926-457E-8B7E-17211F67C320}.Debug|x64.Build.0 = Debug|Any CPU
+		{6C9A74B5-D926-457E-8B7E-17211F67C320}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6C9A74B5-D926-457E-8B7E-17211F67C320}.Debug|x86.Build.0 = Debug|Any CPU
+		{6C9A74B5-D926-457E-8B7E-17211F67C320}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6C9A74B5-D926-457E-8B7E-17211F67C320}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6C9A74B5-D926-457E-8B7E-17211F67C320}.Release|x64.ActiveCfg = Release|Any CPU
+		{6C9A74B5-D926-457E-8B7E-17211F67C320}.Release|x64.Build.0 = Release|Any CPU
+		{6C9A74B5-D926-457E-8B7E-17211F67C320}.Release|x86.ActiveCfg = Release|Any CPU
+		{6C9A74B5-D926-457E-8B7E-17211F67C320}.Release|x86.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{818B9969-A01A-47FC-B8E2-7B44C5558D01} = {6F7F1D2A-8C92-4D7F-86E7-7B9D3A4615A2}
+		{36C42C7B-40BA-AB82-E2DA-C99A74D3B3DE} = {762FB55A-D534-FBA3-4F64-743CBAF8F9AD}
+		{555BA4F3-1904-870C-8707-8C9DB32DDB25} = {36C42C7B-40BA-AB82-E2DA-C99A74D3B3DE}
+		{5A2B3DD8-6913-0030-6B65-294AC8F2F6E2} = {555BA4F3-1904-870C-8707-8C9DB32DDB25}
+		{DC0216E4-F2E5-B3F9-CB13-0EF782DD989C} = {5A2B3DD8-6913-0030-6B65-294AC8F2F6E2}
+		{34863F4B-D8F8-43B7-78BA-BC81C48672A7} = {DC0216E4-F2E5-B3F9-CB13-0EF782DD989C}
+		{6C9A74B5-D926-457E-8B7E-17211F67C320} = {34863F4B-D8F8-43B7-78BA-BC81C48672A7}
+	EndGlobalSection
+EndGlobal
