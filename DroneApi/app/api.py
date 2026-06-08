@@ -1,15 +1,24 @@
 from __future__ import annotations
 
+import time
+from typing import Any
+
 from fastapi import FastAPI, HTTPException
 
 from app.command_executor import CommandExecutor
 from app.drone_controller import DroneController
+from DB.repository import DroneForgeRepository
 from models.models import (
     ConnectRequest,
+    ExecuteRouteRequest,
     GlobalPositionRequest,
     LocalPositionRequest,
     ModeRequest,
     RawCommandRequest,
+    RouteCreateRequest,
+    RoutePointRequest,
+    SequenceCreateRequest,
+    StoredCommandRequest,
     TakeoffRequest,
     ThrottleRequest,
     VelocityBodyRequest,
@@ -21,6 +30,19 @@ app = FastAPI(title="Drone Control API")
 
 drone_controller = DroneController()
 command_executor = CommandExecutor(drone_controller)
+repository = DroneForgeRepository()
+
+
+def _db_error(exception: Exception) -> HTTPException:
+    if isinstance(exception, KeyError):
+        return HTTPException(status_code=404, detail=str(exception))
+    return HTTPException(status_code=500, detail=str(exception))
+
+
+def _model_to_dict(model: Any) -> dict:
+    if hasattr(model, "model_dump"):
+        return model.model_dump()
+    return model.dict()
 
 
 @app.post("/connect")
@@ -217,3 +239,120 @@ def send_raw_command(request: RawCommandRequest) -> dict:
         return {"success": True}
     except Exception as exception:
         raise HTTPException(status_code=500, detail=str(exception))
+
+
+@app.get("/db/health")
+def get_database_health() -> dict:
+    try:
+        return repository.health()
+    except Exception as exception:
+        raise _db_error(exception)
+
+
+@app.post("/sequences")
+def create_sequence(request: SequenceCreateRequest) -> dict:
+    try:
+        return repository.create_sequence(
+            request.name,
+            [_model_to_dict(command) for command in request.commands],
+        )
+    except Exception as exception:
+        raise _db_error(exception)
+
+
+@app.get("/sequences")
+def list_sequences() -> list[dict]:
+    try:
+        return repository.list_sequences()
+    except Exception as exception:
+        raise _db_error(exception)
+
+
+@app.get("/sequences/{sequence_id}")
+def get_sequence(sequence_id: str) -> dict:
+    try:
+        return repository.get_sequence(sequence_id)
+    except Exception as exception:
+        raise _db_error(exception)
+
+
+@app.post("/sequences/{sequence_id}/commands")
+def add_command(sequence_id: str, request: StoredCommandRequest) -> dict:
+    try:
+        return repository.add_command(
+            sequence_id,
+            request.command,
+            request.order_index,
+            request.parameters,
+        )
+    except Exception as exception:
+        raise _db_error(exception)
+
+
+@app.post("/routes")
+def create_route(request: RouteCreateRequest) -> dict:
+    try:
+        points = [_model_to_dict(point) for point in request.points]
+        return repository.create_route(request.name, points, request.sequence_id)
+    except Exception as exception:
+        raise _db_error(exception)
+
+
+@app.get("/routes")
+def list_routes() -> list[dict]:
+    try:
+        return repository.list_routes()
+    except Exception as exception:
+        raise _db_error(exception)
+
+
+@app.get("/routes/{route_id}")
+def get_route(route_id: str) -> dict:
+    try:
+        return repository.get_route(route_id)
+    except Exception as exception:
+        raise _db_error(exception)
+
+
+@app.post("/routes/{route_id}/points")
+def add_route_point(route_id: str, request: RoutePointRequest) -> dict:
+    try:
+        return repository.add_point(
+            route_id,
+            request.latitude,
+            request.longitude,
+            request.altitude_meters,
+            request.order_index,
+            request.depends_on_point_id,
+        )
+    except Exception as exception:
+        raise _db_error(exception)
+
+
+@app.post("/routes/{route_id}/execute-guided")
+def execute_route_guided(route_id: str, request: ExecuteRouteRequest | None = None) -> dict:
+    try:
+        points = repository.get_route_points(route_id)
+        if not points:
+            raise ValueError("Route has no points.")
+
+        drone_controller.set_mode("GUIDED")
+        wait_seconds = request.wait_seconds_between_points if request else 0.2
+
+        for point in points:
+            drone_controller.goto_global_relative(
+                point["latitude"],
+                point["longitude"],
+                point["altitude_meters"],
+            )
+            if wait_seconds > 0:
+                time.sleep(wait_seconds)
+
+        return {
+            "success": True,
+            "route_id": route_id,
+            "points_executed": len(points),
+            "mode": "GUIDED",
+        }
+    except Exception as exception:
+        raise _db_error(exception)

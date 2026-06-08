@@ -1,0 +1,15 @@
+name: droneforge-db
+
+services:
+  mongodb:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: droneforge
+    volumes:
+      - droneforge-mongodb-data:/data/db
+
+volumes:
+  droneforge-mongodb-data:
