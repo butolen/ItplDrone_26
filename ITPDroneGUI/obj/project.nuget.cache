@@ -1,13 +1,13 @@
 {
   "version": 2,
-  "dgSpecHash": "epiOoqpZoww=",
+  "dgSpecHash": "2dI4Mt0iakc=",
   "success": true,
-  "projectFilePath": "C:\\Users\\nikla\\Desktop\\Drone\\ItplDrone_26\\ITPDroneGUI\\ITPDroneGUI.csproj",
+  "projectFilePath": "C:\\Users\\mathi\\Desktop\\DroneFertig\\ItplDrone_26\\ITPDroneGUI\\ITPDroneGUI.csproj",
   "expectedPackageFiles": [
-    "C:\\Users\\nikla\\.nuget\\packages\\microsoft.netcore.app.ref\\9.0.16\\microsoft.netcore.app.ref.9.0.16.nupkg.sha512",
-    "C:\\Users\\nikla\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\9.0.16\\microsoft.windowsdesktop.app.ref.9.0.16.nupkg.sha512",
-    "C:\\Users\\nikla\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\9.0.16\\microsoft.aspnetcore.app.ref.9.0.16.nupkg.sha512",
-    "C:\\Users\\nikla\\.nuget\\packages\\microsoft.netcore.app.host.win-x64\\9.0.16\\microsoft.netcore.app.host.win-x64.9.0.16.nupkg.sha512"
+    "C:\\Users\\mathi\\.nuget\\packages\\microsoft.netcore.app.ref\\9.0.16\\microsoft.netcore.app.ref.9.0.16.nupkg.sha512",
+    "C:\\Users\\mathi\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\9.0.16\\microsoft.windowsdesktop.app.ref.9.0.16.nupkg.sha512",
+    "C:\\Users\\mathi\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\9.0.16\\microsoft.aspnetcore.app.ref.9.0.16.nupkg.sha512",
+    "C:\\Users\\mathi\\.nuget\\packages\\microsoft.netcore.app.host.win-x64\\9.0.16\\microsoft.netcore.app.host.win-x64.9.0.16.nupkg.sha512"
   ],
   "logs": []
 }
