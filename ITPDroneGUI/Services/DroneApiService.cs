@@ -23,7 +23,7 @@ public class DroneApiService
     public class ConnectRequest
     {
         [JsonPropertyName("connection_string")]
-        public string ConnectionString { get; set; } = "udpin:0.0.0.0:14551";
+        public string ConnectionString { get; set; } = "tcp:127.0.0.1:5773";
 
         [JsonPropertyName("baud_rate")]
         public int BaudRate { get; set; } = 57600;
@@ -164,6 +164,21 @@ public class DroneApiService
         public Dictionary<string, object?> Parameters { get; set; } = [];
     }
 
+    public class StoredCommand
+    {
+        [JsonPropertyName("command_id")]
+        public string CommandId { get; set; } = "";
+
+        [JsonPropertyName("command")]
+        public string Command { get; set; } = "";
+
+        [JsonPropertyName("order_index")]
+        public int OrderIndex { get; set; }
+
+        [JsonPropertyName("parameters")]
+        public Dictionary<string, object?> Parameters { get; set; } = [];
+    }
+
     public class SequenceCreateRequest
     {
         [JsonPropertyName("name")]
@@ -183,6 +198,12 @@ public class DroneApiService
 
         [JsonPropertyName("name")]
         public string Name { get; set; } = "";
+    }
+
+    public class SequenceDetail : SequenceSummary
+    {
+        [JsonPropertyName("commands")]
+        public List<StoredCommand> Commands { get; set; } = [];
     }
 
     public class RoutePointRequest
@@ -348,8 +369,55 @@ public class DroneApiService
         }
     }
 
+    public async Task<ApiResponse<T>> DeleteAsync<T>(string endpoint)
+    {
+        try
+        {
+            var response = await _httpClient.DeleteAsync($"{_apiBaseUrl}{endpoint}");
+            var responseBody = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new ApiResponse<T>
+                {
+                    Success = false,
+                    ErrorMessage = $"Status {(int)response.StatusCode} {response.StatusCode}",
+                    ResponseBody = responseBody,
+                };
+            }
+
+            T? data = default;
+            if (!string.IsNullOrWhiteSpace(responseBody))
+            {
+                try
+                {
+                    data = await response.Content.ReadFromJsonAsync<T>();
+                }
+                catch
+                {
+                    data = default;
+                }
+            }
+
+            return new ApiResponse<T>
+            {
+                Success = true,
+                Data = data,
+                ResponseBody = responseBody,
+            };
+        }
+        catch (Exception ex)
+        {
+            return new ApiResponse<T>
+            {
+                Success = false,
+                ErrorMessage = ex.Message,
+            };
+        }
+    }
+
     public Task<ApiResponse<object>> Connect(
-        string connectionString = "udpin:0.0.0.0:14551",
+        string connectionString = "tcp:127.0.0.1:5773",
         int baudRate = 57600,
         double heartbeatTimeoutSeconds = 10.0)
     {
@@ -511,6 +579,16 @@ public class DroneApiService
         return GetAsync<List<SequenceSummary>>("/sequences");
     }
 
+    public Task<ApiResponse<SequenceDetail>> GetSequence(string sequenceId)
+    {
+        return GetAsync<SequenceDetail>($"/sequences/{Uri.EscapeDataString(sequenceId)}");
+    }
+
+    public Task<ApiResponse<object>> DeleteSequence(string sequenceId)
+    {
+        return DeleteAsync<object>($"/sequences/{Uri.EscapeDataString(sequenceId)}");
+    }
+
     public Task<ApiResponse<RouteDetail>> CreateRoute(
         string name,
         List<RoutePointRequest> points,
@@ -534,6 +612,11 @@ public class DroneApiService
     public Task<ApiResponse<RouteDetail>> GetRoute(string routeId)
     {
         return GetAsync<RouteDetail>($"/navigation/routes/{Uri.EscapeDataString(routeId)}");
+    }
+
+    public Task<ApiResponse<object>> DeleteRoute(string routeId)
+    {
+        return DeleteAsync<object>($"/navigation/routes/{Uri.EscapeDataString(routeId)}");
     }
 
     public Task<ApiResponse<object>> ExecuteGuidedRoute(string routeId, double waitSecondsBetweenPoints = 3.0)

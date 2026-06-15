@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\nikla\\Desktop\\Drone\\ItplDrone_26\\DroneLauncher\\DroneLauncher.csproj": {}
+    "C:\\Users\\mathi\\Desktop\\DroneFertig\\ItplDrone_26\\DroneLauncher\\DroneLauncher.csproj": {}
   },
   "projects": {
-    "C:\\Users\\nikla\\Desktop\\Drone\\ItplDrone_26\\DroneLauncher\\DroneLauncher.csproj": {
+    "C:\\Users\\mathi\\Desktop\\DroneFertig\\ItplDrone_26\\DroneLauncher\\DroneLauncher.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\nikla\\Desktop\\Drone\\ItplDrone_26\\DroneLauncher\\DroneLauncher.csproj",
+        "projectUniqueName": "C:\\Users\\mathi\\Desktop\\DroneFertig\\ItplDrone_26\\DroneLauncher\\DroneLauncher.csproj",
         "projectName": "DroneLauncher",
-        "projectPath": "C:\\Users\\nikla\\Desktop\\Drone\\ItplDrone_26\\DroneLauncher\\DroneLauncher.csproj",
-        "packagesPath": "C:\\Users\\nikla\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\nikla\\Desktop\\Drone\\ItplDrone_26\\DroneLauncher\\obj\\",
+        "projectPath": "C:\\Users\\mathi\\Desktop\\DroneFertig\\ItplDrone_26\\DroneLauncher\\DroneLauncher.csproj",
+        "packagesPath": "C:\\Users\\mathi\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\mathi\\Desktop\\DroneFertig\\ItplDrone_26\\DroneLauncher\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\nikla\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "C:\\Users\\mathi\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net9.0"
@@ -38,7 +38,7 @@
           "auditLevel": "low",
           "auditMode": "direct"
         },
-        "SdkAnalysisLevel": "10.0.300"
+        "SdkAnalysisLevel": "9.0.300"
       },
       "frameworks": {
         "net9.0": {
@@ -54,30 +54,12 @@
           ],
           "assetTargetFallback": true,
           "warn": true,
-          "downloadDependencies": [
-            {
-              "name": "Microsoft.AspNetCore.App.Ref",
-              "version": "[9.0.16, 9.0.16]"
-            },
-            {
-              "name": "Microsoft.NETCore.App.Host.win-x64",
-              "version": "[9.0.16, 9.0.16]"
-            },
-            {
-              "name": "Microsoft.NETCore.App.Ref",
-              "version": "[9.0.16, 9.0.16]"
-            },
-            {
-              "name": "Microsoft.WindowsDesktop.App.Ref",
-              "version": "[9.0.16, 9.0.16]"
-            }
-          ],
           "frameworkReferences": {
             "Microsoft.NETCore.App": {
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Users\\nikla\\.dotnet\\sdk\\10.0.300/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.311/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

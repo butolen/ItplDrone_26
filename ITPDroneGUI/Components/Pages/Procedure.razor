@@ -1,5 +1,6 @@
 @page "/procedure"
 @implements IAsyncDisposable
+@using System.Text.Json
 @inject DroneApiService Drone
 @inject IJSRuntime Js
 
@@ -7,10 +8,10 @@
 
 <div class="forge-page">
     <header class="forge-toolbar">
-        <div class="brand">
+        <a class="brand" href="/" aria-label="Home">
             <span class="brand-logo" aria-hidden="true"><img src="droneforge-logo.svg" alt="" /></span>
             <span>DroneForge</span>
-        </div>
+        </a>
 
         <div class="telemetry">
             <span>ALT: @AltitudeLabel</span>
@@ -37,59 +38,32 @@
     </header>
 
     <section class="route-panel">
-        <div class="route-field">
-            <span>Name</span>
-            <input type="text" @bind="routeName" maxlength="45" disabled="@(isRunning || isRouteBusy)" />
-        </div>
-        <button class="route-button primary" type="button" @onclick="SaveRouteAsync" disabled="@(isRunning || isRouteBusy || !CanSaveRoute)">SAVE ROUTE</button>
-        <button class="route-button" type="button" @onclick="SaveProcedureAsync" disabled="@(isRunning || isRouteBusy || missionBlocks.Count == 0)">SAVE PROCEDURE</button>
-        <div class="route-field select">
-            <span>Route</span>
-            <select value="@selectedRouteId" @onchange="SelectRouteAsync" disabled="@(isRunning || isRouteBusy)">
-                <option value="">Select route</option>
-                @foreach (var route in savedRoutes)
-                {
-                    <option value="@route.RouteId">@route.Name</option>
-                }
-            </select>
-        </div>
-        <button class="route-button" type="button" @onclick="LoadSelectedRouteAsync" disabled="@(isRunning || isRouteBusy || string.IsNullOrWhiteSpace(selectedRouteId))">LOAD</button>
-        <button class="route-button guided" type="button" @onclick="RunSelectedRouteGuidedAsync" disabled="@(!CanRunSelectedRoute)">FLY ROUTE</button>
-        <div class="route-field compact">
-            <span>Wait</span>
-            <input type="number" @bind="routeWaitSeconds" min="0" max="30" step="0.1" disabled="@(isRunning || isRouteBusy)" />
-        </div>
-        <div class="route-count">@SelectedRoutePointLabel</div>
-    </section>
-
-    <section class="route-builder">
-        <div class="route-builder-title">
-            <strong>Navigation Points</strong>
-            <span>@routePoints.Count coordinate point@(routePoints.Count == 1 ? "" : "s")</span>
-        </div>
-        <div class="point-entry">
-            <label>Lat <input type="number" @bind="newPointLatitude" step="0.000001" /></label>
-            <label>Lon <input type="number" @bind="newPointLongitude" step="0.000001" /></label>
-            <label>Alt <input type="number" @bind="newPointAltitude" min="0" max="100" step="0.5" /></label>
-            <button class="route-button primary" type="button" @onclick="AddRoutePointFromInputs" disabled="@(isRunning || isRouteBusy)">ADD POINT</button>
-            <button class="route-button" type="button" @onclick="AddCurrentGpsPoint" disabled="@(isRunning || isRouteBusy || telemetry.Latitude is null || telemetry.Longitude is null)">USE GPS</button>
-            <button class="route-button" type="button" @onclick="SyncRoutePointsFromBlocks" disabled="@(isRunning || isRouteBusy)">FROM BLOCKS</button>
-        </div>
-        @if (routePoints.Count > 0)
-        {
-            <div class="point-list">
-                @foreach (var item in routePoints.Select((point, index) => new { point, index }))
-                {
-                    <div class="point-row">
-                        <span class="point-index">@(item.index + 1)</span>
-                        <input type="number" @bind="item.point.Latitude" step="0.000001" disabled="@(isRunning || isRouteBusy)" />
-                        <input type="number" @bind="item.point.Longitude" step="0.000001" disabled="@(isRunning || isRouteBusy)" />
-                        <input type="number" @bind="item.point.AltitudeMeters" min="0" max="100" step="0.5" disabled="@(isRunning || isRouteBusy)" />
-                        <button class="remove-point" type="button" title="Remove point" @onclick="() => RemoveRoutePoint(item.index)" disabled="@(isRunning || isRouteBusy)">x</button>
-                    </div>
-                }
+        <div class="manager-card">
+            <div class="manager-heading">
+                <strong>Mission</strong>
+                <span>@missionBlocks.Count block@(missionBlocks.Count == 1 ? "" : "s") / @routePoints.Count point@(routePoints.Count == 1 ? "" : "s")</span>
             </div>
-        }
+            <div class="manager-grid mission-grid">
+                <label class="route-field">
+                    <span>Name</span>
+                    <input type="text" @bind="procedureName" maxlength="45" disabled="@(isRunning || isRouteBusy)" />
+                </label>
+                <label class="route-field">
+                    <span>Saved</span>
+                    <div class="route-select-row">
+                        <select value="@selectedProcedureId" @onchange="SelectProcedureAsync" disabled="@(isRunning || isRouteBusy)">
+                            <option value="">Select mission</option>
+                            @foreach (var procedure in savedProcedures)
+                            {
+                                <option value="@procedure.SequenceId">@procedure.Name</option>
+                            }
+                        </select>
+                        <button class="delete-route-button" type="button" title="Delete mission" aria-label="Delete selected mission" @onclick="DeleteSelectedProcedureAsync" disabled="@(isRunning || isRouteBusy || string.IsNullOrWhiteSpace(selectedProcedureId))">x</button>
+                    </div>
+                </label>
+                <button class="route-button primary" type="button" @onclick="SaveProcedureAsync" disabled="@(isRunning || isRouteBusy || missionBlocks.Count == 0)">SAVE MISSION</button>
+            </div>
+        </div>
     </section>
 
     <main class="forge-workbench">
@@ -146,7 +120,7 @@
         }
     </footer>
 
-    <aside class="gps-map-card" @ref="gpsMapCardReference" aria-label="Live GPS map">
+    <aside class="gps-map-card" @ref="gpsMapCardReference" aria-label="Route satellite map">
         <button class="gps-map-resize-handle"
                 @ref="gpsMapResizeHandleReference"
                 type="button"
@@ -156,57 +130,21 @@
         </button>
 
         <div class="gps-map-title">
-            <span>GPS Map</span>
-            <strong>@GpsFixLabel</strong>
+            <span>Route Map</span>
+            <div class="gps-map-actions">
+                <strong>Click map to add point</strong>
+                <button class="map-action-button" type="button" @onclick="CenterMapOnDroneAsync" disabled="@(telemetry.Latitude is null || telemetry.Longitude is null)">CURRENT DRONE</button>
+            </div>
         </div>
 
         <div class="gps-map-frame">
-            <svg class="gps-map" viewBox="0 0 240 160" preserveAspectRatio="none" role="img" aria-label="Drone position map">
-                <defs>
-                    <pattern id="gps-grid" width="20" height="20" patternUnits="userSpaceOnUse">
-                        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#3f4e6f" stroke-width="0.8" />
-                    </pattern>
-                    <radialGradient id="gps-glow" cx="50%" cy="50%" r="50%">
-                        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.45" />
-                        <stop offset="100%" stop-color="#8fd4ff" stop-opacity="0" />
-                    </radialGradient>
-                </defs>
-                <rect width="240" height="160" rx="6" fill="#182235" />
-                <rect width="240" height="160" rx="6" fill="url(#gps-grid)" />
-                <line x1="120" y1="12" x2="120" y2="148" class="gps-axis" />
-                <line x1="12" y1="80" x2="228" y2="80" class="gps-axis" />
-
-                @if (HasMapPosition)
-                {
-                    <circle class="gps-home-ring" cx="@MapHomeX" cy="@MapHomeY" r="7" />
-                    <circle class="gps-home-dot" cx="@MapHomeX" cy="@MapHomeY" r="3" />
-
-                    @if (!string.IsNullOrWhiteSpace(MapPathPoints))
-                    {
-                        <polyline class="gps-trail" points="@MapPathPoints" />
-                    }
-
-                    <line class="gps-heading" x1="@DroneMapX" y1="@DroneMapY" x2="@DroneHeadingX" y2="@DroneHeadingY" />
-                    <circle class="gps-drone-glow" cx="@DroneMapX" cy="@DroneMapY" r="18" />
-                    <circle class="gps-drone-marker" cx="@DroneMapX" cy="@DroneMapY" r="6" />
-                }
-            </svg>
-
-            <div class="gps-map-north">N</div>
-
-            @if (!HasMapPosition)
-            {
-                <div class="gps-map-waiting">
-                    <strong>WAITING FOR GPS</strong>
-                    <span>connect drone to show map</span>
-                </div>
-            }
+            <div class="gps-map" @ref="routeMapReference"></div>
         </div>
 
         <div class="gps-map-readout">
             <span><b>LAT</b>@LatitudeLabel</span>
             <span><b>LON</b>@LongitudeLabel</span>
-            <span><b>SPAN</b>@MapRangeLabel</span>
+            <span><b>POINTS</b>@routePoints.Count</span>
         </div>
     </aside>
 </div>
@@ -223,12 +161,15 @@
     private double? mapOriginLocalY;
     private ElementReference gpsMapCardReference;
     private ElementReference gpsMapResizeHandleReference;
+    private ElementReference routeMapReference;
     private DotNetObjectReference<Procedure>? procedureReference;
     private IJSObjectReference? procedureMapModule;
-    private double gpsMapWidth = 300.0;
-    private double gpsMapHeight = 266.0;
+    private double gpsMapWidth = 440.0;
+    private double gpsMapHeight = 360.0;
     private bool hasInitializedGpsMapResize;
-
+    private bool hasInitializedRouteMap;
+    private double? missionGroundAltitude;
+    private double? currentLegTargetAltitude;
     private const double MapWidth = 240.0;
     private const double MapHeight = 160.0;
     private const double MapPadding = 20.0;
@@ -272,13 +213,14 @@
     private string selectedMode = "STABILIZE";
     private string routeName = "New route";
     private string selectedRouteId = "";
+    private string procedureName = "New procedure";
+    private string selectedProcedureId = "";
     private Guid? runningBlockId;
     private TelemetrySnapshot telemetry = new();
     private List<DroneApiService.RouteSummary> savedRoutes = [];
     private List<DroneApiService.SequenceSummary> savedProcedures = [];
     private readonly List<RoutePointDraft> routePoints = [];
     private int selectedRoutePointCount;
-    private double routeWaitSeconds = 3.0;
     private double newPointLatitude = 47.397742;
     private double newPointLongitude = 8.545594;
     private double newPointAltitude = 5.0;
@@ -328,28 +270,44 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (hasInitializedGpsMapResize)
+        procedureReference ??= DotNetObjectReference.Create(this);
+        procedureMapModule ??= await Js.InvokeAsync<IJSObjectReference>("import", "/js/procedureMap.js?v=20260614-1");
+
+        if (!hasInitializedGpsMapResize)
         {
-            return;
+            await procedureMapModule.InvokeVoidAsync(
+                "initializeResize",
+                gpsMapCardReference,
+                gpsMapResizeHandleReference,
+                procedureReference,
+                new
+                {
+                    initialWidth = gpsMapWidth,
+                    initialHeight = gpsMapHeight,
+                    minWidth = 320.0,
+                    minHeight = 260.0,
+                    maxWidth = 980.0,
+                    maxHeight = 760.0,
+                });
+            hasInitializedGpsMapResize = true;
         }
 
-        procedureReference = DotNetObjectReference.Create(this);
-        procedureMapModule ??= await Js.InvokeAsync<IJSObjectReference>("import", "/js/procedureMap.js?v=20260608-2");
-        await procedureMapModule.InvokeVoidAsync(
-            "initializeResize",
-            gpsMapCardReference,
-            gpsMapResizeHandleReference,
-            procedureReference,
-            new
-            {
-                initialWidth = gpsMapWidth,
-                initialHeight = gpsMapHeight,
-                minWidth = 240.0,
-                minHeight = 210.0,
-                maxWidth = 760.0,
-                maxHeight = 620.0,
-            });
-        hasInitializedGpsMapResize = true;
+        if (!hasInitializedRouteMap)
+        {
+            await procedureMapModule.InvokeVoidAsync(
+                "initializeRouteMap",
+                routeMapReference,
+                procedureReference,
+                new
+                {
+                    latitude = telemetry.Latitude ?? newPointLatitude,
+                    longitude = telemetry.Longitude ?? newPointLongitude,
+                    zoom = 17,
+                });
+            hasInitializedRouteMap = true;
+        }
+
+        await UpdateRouteMapAsync(fitRoute: firstRender);
     }
 
     private RenderFragment RenderPaletteSection(string title, IReadOnlyList<BlockTemplate> templates) => @<section class="palette-section">
@@ -381,6 +339,8 @@
         }
 
         missionBlocks.Insert(Math.Clamp(args.NewIndex, 0, missionBlocks.Count), CreateBlock(kind));
+        SyncRoutePointsFromMissionBlocks();
+        _ = UpdateRouteMapAsync(fitRoute: true);
     }
 
     private void MoveMissionBlock(SortableListMoveEventArgs args)
@@ -437,6 +397,8 @@
         }
 
         missionBlocks.RemoveAll(block => block.Id == id);
+        SyncRoutePointsFromMissionBlocks();
+        _ = UpdateRouteMapAsync(fitRoute: true);
     }
 
     private async Task LoadRoutesAsync()
@@ -446,24 +408,18 @@
 
         try
         {
-            var result = await Drone.GetRoutes();
-            if (!result.Success)
-            {
-                throw new InvalidOperationException(CombineError(result.ErrorMessage, result.ResponseBody));
-            }
-
-            savedRoutes = result.Data ?? [];
             var sequenceResult = await Drone.GetSequences();
-            if (sequenceResult.Success)
+            if (!sequenceResult.Success)
             {
-                savedProcedures = sequenceResult.Data ?? [];
+                throw new InvalidOperationException(CombineError(sequenceResult.ErrorMessage, sequenceResult.ResponseBody));
             }
 
-            status = savedRoutes.Count == 0 ? "No saved routes" : $"Loaded {savedRoutes.Count} route{(savedRoutes.Count == 1 ? "" : "s")}";
+            savedProcedures = sequenceResult.Data ?? [];
+            status = savedProcedures.Count == 0 ? "No saved missions" : $"Loaded {savedProcedures.Count} mission{(savedProcedures.Count == 1 ? "" : "s")}";
         }
         catch (Exception exception)
         {
-            status = "Route list failed";
+            status = "Mission list failed";
             error = exception.Message;
         }
         finally
@@ -534,7 +490,7 @@
 
         try
         {
-            var name = string.IsNullOrWhiteSpace(routeName) ? $"Procedure {DateTime.Now:HHmmss}" : routeName.Trim();
+            var name = string.IsNullOrWhiteSpace(procedureName) ? $"Procedure {DateTime.Now:HHmmss}" : procedureName.Trim();
             var overwrite = false;
             if (ProcedureNameExists(name))
             {
@@ -552,12 +508,12 @@
                 throw new InvalidOperationException(CombineError(result.ErrorMessage, result.ResponseBody));
             }
 
-            status = $"Procedure saved: {name}";
+            status = $"Mission saved: {name}";
             await LoadRoutesAsync();
         }
         catch (Exception exception)
         {
-            status = "Save procedure failed";
+            status = "Save mission failed";
             error = exception.Message;
         }
         finally
@@ -574,6 +530,150 @@
         if (!string.IsNullOrWhiteSpace(selectedRouteId))
         {
             await LoadSelectedRouteAsync();
+        }
+    }
+
+    private async Task DeleteSelectedRouteAsync()
+    {
+        if (string.IsNullOrWhiteSpace(selectedRouteId) || isRunning || isRouteBusy)
+        {
+            return;
+        }
+
+        var routeId = selectedRouteId;
+        var routeLabel = savedRoutes.FirstOrDefault(route => route.RouteId == routeId)?.Name ?? routeName;
+        var confirmed = await Js.InvokeAsync<bool>("confirm", $"Route '{routeLabel}' delete?");
+        if (!confirmed)
+        {
+            status = "Delete route cancelled";
+            return;
+        }
+
+        isRouteBusy = true;
+        error = "";
+
+        try
+        {
+            var result = await Drone.DeleteRoute(routeId);
+            if (!result.Success)
+            {
+                throw new InvalidOperationException(CombineError(result.ErrorMessage, result.ResponseBody));
+            }
+
+            selectedRouteId = "";
+            routeName = "New route";
+            routePoints.Clear();
+            selectedRoutePointCount = 0;
+            RebuildProcedureFromRoutePoints();
+            await LoadRoutesAsync();
+            status = $"Route deleted: {routeLabel}";
+            await UpdateRouteMapAsync(fitRoute: true);
+        }
+        catch (Exception exception)
+        {
+            status = "Delete route failed";
+            error = exception.Message;
+        }
+        finally
+        {
+            isRouteBusy = false;
+        }
+    }
+
+    private async Task SelectProcedureAsync(ChangeEventArgs args)
+    {
+        selectedProcedureId = args.Value?.ToString() ?? "";
+
+        if (!string.IsNullOrWhiteSpace(selectedProcedureId))
+        {
+            await LoadSelectedProcedureAsync();
+        }
+    }
+
+    private async Task DeleteSelectedProcedureAsync()
+    {
+        if (string.IsNullOrWhiteSpace(selectedProcedureId) || isRunning || isRouteBusy)
+        {
+            return;
+        }
+
+        var sequenceId = selectedProcedureId;
+        var missionLabel = savedProcedures.FirstOrDefault(sequence => sequence.SequenceId == sequenceId)?.Name ?? procedureName;
+        var confirmed = await Js.InvokeAsync<bool>("confirm", $"Mission '{missionLabel}' delete?");
+        if (!confirmed)
+        {
+            status = "Delete mission cancelled";
+            return;
+        }
+
+        isRouteBusy = true;
+        error = "";
+
+        try
+        {
+            var result = await Drone.DeleteSequence(sequenceId);
+            if (!result.Success)
+            {
+                throw new InvalidOperationException(CombineError(result.ErrorMessage, result.ResponseBody));
+            }
+
+            selectedProcedureId = "";
+            procedureName = "New procedure";
+            missionBlocks.Clear();
+            routePoints.Clear();
+            selectedRoutePointCount = 0;
+            await LoadRoutesAsync();
+            await UpdateRouteMapAsync(fitRoute: true);
+            status = $"Mission deleted: {missionLabel}";
+        }
+        catch (Exception exception)
+        {
+            status = "Delete mission failed";
+            error = exception.Message;
+        }
+        finally
+        {
+            isRouteBusy = false;
+        }
+    }
+
+    private async Task LoadSelectedProcedureAsync()
+    {
+        if (string.IsNullOrWhiteSpace(selectedProcedureId))
+        {
+            return;
+        }
+
+        isRouteBusy = true;
+        error = "";
+
+        try
+        {
+            var result = await Drone.GetSequence(selectedProcedureId);
+            if (!result.Success || result.Data is null)
+            {
+                throw new InvalidOperationException(CombineError(result.ErrorMessage, result.ResponseBody));
+            }
+
+            missionBlocks.Clear();
+            foreach (var command in result.Data.Commands.OrderBy(command => command.OrderIndex))
+            {
+                missionBlocks.Add(CreateBlockFromStoredCommand(command));
+            }
+
+            procedureName = result.Data.Name;
+            SyncRoutePointsFromMissionBlocks();
+            await UpdateRouteMapAsync(fitRoute: true);
+            status = $"Mission loaded: {result.Data.Name}";
+        }
+        catch (Exception exception)
+        {
+            status = "Load mission failed";
+            error = exception.Message;
+        }
+        finally
+        {
+            isRouteBusy = false;
         }
     }
 
@@ -595,10 +695,11 @@
                 throw new InvalidOperationException(CombineError(result.ErrorMessage, result.ResponseBody));
             }
 
-            ApplyRouteToProcedure(result.Data);
+            ApplyRouteToEditor(result.Data);
             routeName = result.Data.Name;
             selectedRoutePointCount = result.Data.Points.Count;
             status = $"Route loaded: {result.Data.Name}";
+            await UpdateRouteMapAsync(fitRoute: true);
         }
         catch (Exception exception)
         {
@@ -625,7 +726,7 @@
 
         try
         {
-            var result = await Drone.ExecuteGuidedRoute(selectedRouteId, routeWaitSeconds);
+            var result = await Drone.ExecuteGuidedRoute(selectedRouteId);
             if (!result.Success)
             {
                 throw new InvalidOperationException(CombineError(result.ErrorMessage, result.ResponseBody));
@@ -677,38 +778,9 @@
             Longitude = newPointLongitude,
             AltitudeMeters = newPointAltitude,
         });
-        ApplyRoutePointsToProcedure();
         selectedRoutePointCount = routePoints.Count;
-    }
-
-    private void AddCurrentGpsPoint()
-    {
-        if (telemetry.Latitude is null || telemetry.Longitude is null)
-        {
-            return;
-        }
-
-        newPointLatitude = telemetry.Latitude.Value;
-        newPointLongitude = telemetry.Longitude.Value;
-        newPointAltitude = Math.Max(0.0, telemetry.AltitudeMeters);
-        AddRoutePointFromInputs();
-    }
-
-    private void SyncRoutePointsFromBlocks()
-    {
-        routePoints.Clear();
-        foreach (var block in missionBlocks.Where(block => block.Kind == BlockKind.GotoGps))
-        {
-            routePoints.Add(new RoutePointDraft
-            {
-                Latitude = block.Latitude,
-                Longitude = block.Longitude,
-                AltitudeMeters = block.Altitude,
-            });
-        }
-
-        selectedRoutePointCount = routePoints.Count;
-        status = $"Synced {routePoints.Count} coordinate point{(routePoints.Count == 1 ? "" : "s")}";
+        RebuildProcedureFromRoutePoints();
+        _ = UpdateRouteMapAsync(fitRoute: true);
     }
 
     private void RemoveRoutePoint(int index)
@@ -719,24 +791,59 @@
         }
 
         routePoints.RemoveAt(index);
-        ApplyRoutePointsToProcedure();
         selectedRoutePointCount = routePoints.Count;
+        RebuildProcedureFromRoutePoints();
+        _ = UpdateRouteMapAsync(fitRoute: true);
     }
 
-    private void ApplyRoutePointsToProcedure()
+    private void RebuildProcedureFromRoutePoints()
     {
-        missionBlocks.RemoveAll(block => block.Kind == BlockKind.GotoGps);
+        missionBlocks.Clear();
+
         foreach (var point in routePoints)
         {
-            missionBlocks.Add(new MissionBlock(BlockKind.GotoGps)
+            var arm = CreateBlock(BlockKind.Arm);
+            missionBlocks.Add(arm);
+
+            var takeoff = CreateBlock(BlockKind.Takeoff);
+            takeoff.Altitude = Math.Max(1.0, point.AltitudeMeters);
+            takeoff.TimeoutSeconds = 45.0;
+            missionBlocks.Add(takeoff);
+
+            var flyToPoint = CreateBlock(BlockKind.GotoGps);
+            flyToPoint.Latitude = point.Latitude;
+            flyToPoint.Longitude = point.Longitude;
+            flyToPoint.Altitude = Math.Max(1.0, point.AltitudeMeters);
+            flyToPoint.Radius = 2.0;
+            flyToPoint.TimeoutSeconds = 90.0;
+            missionBlocks.Add(flyToPoint);
+
+            var land = CreateBlock(BlockKind.Land);
+            land.TimeoutSeconds = 45.0;
+            missionBlocks.Add(land);
+        }
+
+        if (routePoints.Count > 0 && string.IsNullOrWhiteSpace(procedureName))
+        {
+            procedureName = $"{routeName.Trim()} procedure";
+        }
+    }
+
+    private void SyncRoutePointsFromMissionBlocks()
+    {
+        routePoints.Clear();
+
+        foreach (var block in missionBlocks.Where(block => block.Kind == BlockKind.GotoGps))
+        {
+            routePoints.Add(new RoutePointDraft
             {
-                Latitude = point.Latitude,
-                Longitude = point.Longitude,
-                Altitude = point.AltitudeMeters,
-                Radius = 2.0,
-                TimeoutSeconds = 90.0,
+                Latitude = block.Latitude,
+                Longitude = block.Longitude,
+                AltitudeMeters = Math.Max(1.0, block.Altitude),
             });
         }
+
+        selectedRoutePointCount = routePoints.Count;
     }
 
     private List<DroneApiService.StoredCommandRequest> BuildProcedureCommands()
@@ -749,6 +856,78 @@
                 Parameters = BuildProcedureParameters(block),
             })
             .ToList();
+    }
+
+    private static MissionBlock CreateBlockFromStoredCommand(DroneApiService.StoredCommand command)
+    {
+        if (!Enum.TryParse<BlockKind>(command.Command, out var kind))
+        {
+            kind = BlockKind.Wait;
+        }
+
+        var block = CreateBlock(kind);
+        block.Altitude = ParameterDouble(command.Parameters, "altitude_meters", block.Altitude);
+        block.Speed = ParameterDouble(command.Parameters, "speed", block.Speed);
+        block.Seconds = ParameterDouble(command.Parameters, "seconds", block.Seconds);
+        block.Degrees = ParameterDouble(command.Parameters, "degrees", block.Degrees);
+        block.Latitude = ParameterDouble(command.Parameters, "latitude", block.Latitude);
+        block.Longitude = ParameterDouble(command.Parameters, "longitude", block.Longitude);
+        block.LocalX = ParameterDouble(command.Parameters, "local_x", block.LocalX);
+        block.LocalY = ParameterDouble(command.Parameters, "local_y", block.LocalY);
+        block.Radius = ParameterDouble(command.Parameters, "radius", block.Radius);
+        block.Tolerance = ParameterDouble(command.Parameters, "tolerance", block.Tolerance);
+        block.TimeoutSeconds = ParameterDouble(command.Parameters, "timeout_seconds", block.TimeoutSeconds);
+        block.Count = ParameterInt(command.Parameters, "count", block.Count);
+        block.Percent = ParameterInt(command.Parameters, "percent", block.Percent);
+
+        var direction = ParameterString(command.Parameters, "direction", block.Direction.ToString());
+        if (Enum.TryParse<FlightDirection>(direction, out var parsedDirection))
+        {
+            block.Direction = parsedDirection;
+        }
+
+        return block;
+    }
+
+    private static double ParameterDouble(Dictionary<string, object?> parameters, string key, double fallback)
+    {
+        if (!parameters.TryGetValue(key, out var value) || value is null)
+        {
+            return fallback;
+        }
+
+        return value switch
+        {
+            double number => number,
+            float number => number,
+            int number => number,
+            long number => number,
+            decimal number => (double)number,
+            JsonElement element when element.ValueKind == JsonValueKind.Number && element.TryGetDouble(out var number) => number,
+            JsonElement element when element.ValueKind == JsonValueKind.String && double.TryParse(element.GetString(), out var number) => number,
+            string text when double.TryParse(text, out var number) => number,
+            _ => fallback,
+        };
+    }
+
+    private static int ParameterInt(Dictionary<string, object?> parameters, string key, int fallback)
+    {
+        return (int)Math.Round(ParameterDouble(parameters, key, fallback));
+    }
+
+    private static string ParameterString(Dictionary<string, object?> parameters, string key, string fallback)
+    {
+        if (!parameters.TryGetValue(key, out var value) || value is null)
+        {
+            return fallback;
+        }
+
+        return value switch
+        {
+            JsonElement element when element.ValueKind == JsonValueKind.String => element.GetString() ?? fallback,
+            string text => text,
+            _ => value.ToString() ?? fallback,
+        };
     }
 
     private static Dictionary<string, object?> BuildProcedureParameters(MissionBlock block)
@@ -772,10 +951,9 @@
         };
     }
 
-    private void ApplyRouteToProcedure(DroneApiService.RouteDetail route)
+    private void ApplyRouteToEditor(DroneApiService.RouteDetail route)
     {
         routePoints.Clear();
-        missionBlocks.Clear();
 
         foreach (var point in route.Points.OrderBy(point => point.OrderIndex))
         {
@@ -785,15 +963,9 @@
                 Longitude = point.Longitude,
                 AltitudeMeters = point.AltitudeMeters,
             });
-            missionBlocks.Add(new MissionBlock(BlockKind.GotoGps)
-            {
-                Latitude = point.Latitude,
-                Longitude = point.Longitude,
-                Altitude = point.AltitudeMeters,
-                Radius = 2.0,
-                TimeoutSeconds = 90.0,
-            });
         }
+
+        RebuildProcedureFromRoutePoints();
     }
 
     private async Task ToggleConnectionAsync()
@@ -940,12 +1112,17 @@
         switch (block.Kind)
         {
             case BlockKind.Arm:
+                await EnsureSuccess("Set mode GUIDED", Drone.SetMode("GUIDED"));
+                await WaitUntilModeAsync("GUIDED", TimeSpan.FromSeconds(8), token);
                 await EnsureSuccess("Arm motors", Drone.Arm());
                 await WaitUntilAsync("armed", () => telemetry.Armed, TimeSpan.FromSeconds(10), token);
                 break;
             case BlockKind.Takeoff:
-                await EnsureSuccess("Takeoff", Drone.Takeoff(block.Altitude, armFirst: true));
-                await WaitUntilAltitudeAsync(block.Altitude, block.ToleranceOrDefault(0.25), TimeSpan.FromSeconds(block.TimeoutSecondsOrDefault(45)), token);
+                await RefreshTelemetryAsync();
+                missionGroundAltitude = telemetry.AltitudeMeters;
+                currentLegTargetAltitude = missionGroundAltitude.Value + Math.Max(1.0, block.Altitude);
+                await EnsureSuccess("Takeoff", Drone.Takeoff(currentLegTargetAltitude.Value, armFirst: true));
+                await WaitUntilAltitudeAsync(currentLegTargetAltitude.Value, block.ToleranceOrDefault(0.25), TimeSpan.FromSeconds(block.TimeoutSecondsOrDefault(45)), token);
                 break;
             case BlockKind.Fly:
                 var (vx, vy, vz) = VelocityFor(block.Direction, block.Speed);
@@ -962,8 +1139,9 @@
                 await DelayWithTelemetryAsync(TimeSpan.FromSeconds(Math.Max(0, block.Seconds)), token);
                 break;
             case BlockKind.GotoGps:
-                await EnsureSuccess("Go to GPS", Drone.GotoGlobal(block.Latitude, block.Longitude, block.Altitude));
-                await WaitUntilGpsTargetAsync(block, token);
+                var gpsTargetAltitude = currentLegTargetAltitude ?? ((missionGroundAltitude ?? telemetry.AltitudeMeters) + Math.Max(1.0, block.Altitude));
+                await EnsureSuccess("Go to GPS", Drone.GotoGlobal(block.Latitude, block.Longitude, gpsTargetAltitude));
+                await WaitUntilGpsTargetAsync(block, gpsTargetAltitude, token);
                 break;
             case BlockKind.GotoLocal:
                 await EnsureSuccess("Go to local position", Drone.GotoLocal(block.LocalX, block.LocalY, -Math.Abs(block.Altitude)));
@@ -975,7 +1153,8 @@
                 break;
             case BlockKind.Land:
                 await EnsureSuccess("Land", Drone.Land());
-                await WaitUntilAltitudeAsync(0.2, 0.35, TimeSpan.FromSeconds(75), token);
+                await WaitUntilLandedReadyAsync(token);
+                currentLegTargetAltitude = null;
                 break;
             case BlockKind.Disarm:
                 await EnsureSuccess("Disarm", Drone.Disarm());
@@ -1078,7 +1257,57 @@
             token);
     }
 
-    private async Task WaitUntilGpsTargetAsync(MissionBlock block, CancellationToken token)
+    private async Task WaitUntilLandedReadyAsync(CancellationToken token)
+    {
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(90);
+        DateTimeOffset? stableSince = null;
+        double? stableReferenceAltitude = null;
+
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            token.ThrowIfCancellationRequested();
+            await RefreshTelemetryAsync();
+            await InvokeAsync(StateHasChanged);
+
+            var inLandMode = string.Equals(telemetry.Mode, "LAND", StringComparison.OrdinalIgnoreCase);
+            if (inLandMode)
+            {
+                if (stableReferenceAltitude is null || Math.Abs(telemetry.AltitudeMeters - stableReferenceAltitude.Value) > 0.05)
+                {
+                    stableReferenceAltitude = telemetry.AltitudeMeters;
+                    stableSince = DateTimeOffset.UtcNow;
+                }
+                else if (stableSince is not null && DateTimeOffset.UtcNow - stableSince.Value >= TimeSpan.FromSeconds(3))
+                {
+                    if (telemetry.Armed)
+                    {
+                        await EnsureSuccess("Disarm after landing", Drone.Disarm());
+                        await WaitUntilAsync("ready after landing", () => !telemetry.Armed, TimeSpan.FromSeconds(10), token);
+                    }
+
+                    missionGroundAltitude = stableReferenceAltitude.Value;
+                    return;
+                }
+            }
+            else
+            {
+                stableReferenceAltitude = null;
+                stableSince = null;
+            }
+
+            if (telemetry.AltitudeMeters <= 0.2 && !telemetry.Armed)
+            {
+                missionGroundAltitude = telemetry.AltitudeMeters;
+                return;
+            }
+
+            await Task.Delay(500, token);
+        }
+
+        throw new TimeoutException("Timed out while waiting for landed ready state.");
+    }
+
+    private async Task WaitUntilGpsTargetAsync(MissionBlock block, double targetAltitude, CancellationToken token)
     {
         await WaitUntilAsync(
             "GPS target",
@@ -1091,7 +1320,7 @@
 
                 var distance = DistanceMeters(telemetry.Latitude.Value, telemetry.Longitude.Value, block.Latitude, block.Longitude);
                 return distance <= Math.Max(0.5, block.Radius)
-                    && Math.Abs(telemetry.AltitudeMeters - block.Altitude) <= 0.75;
+                    && Math.Abs(telemetry.AltitudeMeters - targetAltitude) <= 0.75;
             },
             TimeSpan.FromSeconds(block.TimeoutSecondsOrDefault(90)),
             token);
@@ -1234,6 +1463,7 @@
             }
 
             CaptureGpsTrailPoint();
+            await UpdateRouteMapAsync(fitRoute: false);
         }
         catch
         {
@@ -1244,8 +1474,83 @@
     [JSInvokable]
     public void SetGpsMapSizeFromBrowser(double width, double height)
     {
-        gpsMapWidth = Math.Clamp(width, 240.0, 760.0);
-        gpsMapHeight = Math.Clamp(height, 210.0, 620.0);
+        gpsMapWidth = Math.Clamp(width, 320.0, 980.0);
+        gpsMapHeight = Math.Clamp(height, 260.0, 760.0);
+        _ = UpdateRouteMapAsync(fitRoute: false);
+    }
+
+    [JSInvokable]
+    public async Task AddRoutePointFromMap(double latitude, double longitude)
+    {
+        if (isRunning || isRouteBusy)
+        {
+            return;
+        }
+
+        newPointLatitude = latitude;
+        newPointLongitude = longitude;
+        routePoints.Add(new RoutePointDraft
+        {
+            Latitude = latitude,
+            Longitude = longitude,
+            AltitudeMeters = newPointAltitude,
+        });
+        selectedRoutePointCount = routePoints.Count;
+        RebuildProcedureFromRoutePoints();
+        status = $"Map point added: {latitude:0.000000}, {longitude:0.000000}";
+        await UpdateRouteMapAsync(fitRoute: false);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task CenterMapOnDroneAsync()
+    {
+        if (procedureMapModule is null || telemetry.Latitude is null || telemetry.Longitude is null)
+        {
+            return;
+        }
+
+        var drone = new
+        {
+            latitude = telemetry.Latitude,
+            longitude = telemetry.Longitude,
+        };
+
+        try
+        {
+            await procedureMapModule.InvokeVoidAsync("centerRouteMapOnDrone", routeMapReference, drone);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+
+    private async Task UpdateRouteMapAsync(bool fitRoute)
+    {
+        if (!hasInitializedRouteMap || procedureMapModule is null)
+        {
+            return;
+        }
+
+        var route = routePoints.Select(point => new
+        {
+            latitude = point.Latitude,
+            longitude = point.Longitude,
+            altitude = point.AltitudeMeters,
+        });
+
+        var drone = new
+        {
+            latitude = telemetry.Latitude,
+            longitude = telemetry.Longitude,
+        };
+
+        try
+        {
+            await procedureMapModule.InvokeVoidAsync("updateRouteMap", routeMapReference, route, drone, fitRoute);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
     }
 
     private void CaptureGpsTrailPoint()
@@ -1548,6 +1853,7 @@
                 if (procedureMapModule is not null)
                 {
                     await procedureMapModule.InvokeVoidAsync("disposeResize", gpsMapCardReference);
+                    await procedureMapModule.InvokeVoidAsync("disposeRouteMap", routeMapReference);
                 }
             }
             catch (JSDisconnectedException)
@@ -1725,27 +2031,29 @@
         background: #d4d4d9;
         color: #f7f8fb;
         display: grid;
-        grid-template-rows: 62px 58px auto minmax(520px, 1fr) auto;
+        grid-template-rows: 62px auto minmax(520px, 1fr) auto;
         overflow: hidden;
     }
 
     .forge-toolbar {
         display: grid;
-        grid-template-columns: 268px minmax(420px, 1fr) minmax(620px, auto);
+        grid-template-columns: minmax(180px, 268px) minmax(260px, 1fr) minmax(360px, auto);
         align-items: center;
-        gap: 18px;
+        gap: 12px;
         background: #202a42;
         border-bottom: 1px solid #303b58;
-        padding: 0 24px;
+        padding: 0 18px;
     }
 
     .brand {
         display: flex;
         align-items: center;
-        gap: 14px;
-        font-size: 1.82rem;
+        gap: 10px;
+        color: #ffffff;
+        font-size: clamp(1.25rem, 2vw, 1.82rem);
         font-weight: 400;
         letter-spacing: 0;
+        text-decoration: none;
     }
 
     .brand-logo,
@@ -1759,10 +2067,10 @@
     .telemetry {
         display: flex;
         justify-content: center;
-        gap: 40px;
+        gap: clamp(12px, 2vw, 34px);
         flex-wrap: wrap;
         color: #ffffff;
-        font-size: 1.32rem;
+        font-size: clamp(0.9rem, 1.35vw, 1.32rem);
         font-weight: 800;
     }
 
@@ -1774,18 +2082,63 @@
         display: flex;
         align-items: center;
         justify-content: flex-end;
-        gap: 14px;
+        gap: 8px;
+        flex-wrap: wrap;
     }
 
     .route-panel {
         display: grid;
-        grid-template-columns: minmax(180px, 280px) 116px 142px minmax(220px, 320px) 92px 122px 92px 120px;
-        align-items: center;
-        gap: 10px;
+        grid-template-columns: minmax(0, 1fr);
+        align-items: start;
+        gap: 0;
         background: #26334d;
         border-bottom: 1px solid #303b58;
-        padding: 8px 24px;
+        padding: 5px 18px;
         color: #dce5f4;
+    }
+
+    .manager-card {
+        min-width: 0;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: center;
+        gap: 14px;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        padding: 0;
+    }
+
+    .manager-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        color: #ffffff;
+        font-size: 0.82rem;
+        font-weight: 900;
+    }
+
+    .manager-heading span {
+        color: #b9c4d7;
+        font-size: 0.7rem;
+        white-space: nowrap;
+    }
+
+    .manager-grid {
+        display: grid;
+        grid-template-columns: minmax(160px, 1.1fr) minmax(160px, 1fr) minmax(86px, 0.45fr) repeat(3, auto);
+        gap: 8px;
+        align-items: end;
+    }
+
+    .procedure-grid {
+        grid-template-columns: minmax(160px, 1.1fr) minmax(160px, 1fr) repeat(2, auto);
+    }
+
+    .mission-grid {
+        grid-template-columns: minmax(160px, 0.9fr) minmax(190px, 1fr) auto;
+        justify-content: end;
     }
 
     .route-field {
@@ -1811,7 +2164,7 @@
     .route-field input,
     .route-field select {
         min-width: 0;
-        height: 30px;
+        height: 28px;
         border: 1px solid #4d5f82;
         border-radius: 4px;
         background: #1b2436;
@@ -1821,8 +2174,37 @@
         font-weight: 700;
     }
 
+    .route-select-row {
+        min-width: 0;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 28px;
+        gap: 6px;
+        align-items: center;
+    }
+
+    .route-select-row select {
+        width: 100%;
+    }
+
+    .delete-route-button {
+        width: 28px;
+        height: 28px;
+        border: 1px solid #7f4f5b;
+        border-radius: 4px;
+        background: #3a2330;
+        color: #ffd7df;
+        font-size: 0.9rem;
+        font-weight: 900;
+        line-height: 1;
+    }
+
+    .delete-route-button:disabled {
+        cursor: not-allowed;
+        opacity: 0.42;
+    }
+
     .route-button {
-        height: 30px;
+        height: 28px;
         border: 0;
         border-radius: 4px;
         background: #3a4a69;
@@ -1875,7 +2257,7 @@
 
     .point-entry {
         display: grid;
-        grid-template-columns: repeat(3, minmax(110px, 1fr)) repeat(3, auto);
+        grid-template-columns: repeat(3, minmax(110px, 1fr)) repeat(2, auto);
         gap: 8px;
         align-items: center;
     }
@@ -1940,27 +2322,27 @@
     .run-button,
     .abort-button,
     .mode-select {
-        height: 34px;
+        height: 32px;
         border-radius: 4px;
         color: #ffffff;
-        font-size: 0.82rem;
+        font-size: 0.76rem;
         font-weight: 800;
     }
 
     .connect-button,
     .run-button,
     .abort-button {
-        min-width: 142px;
+        min-width: 118px;
         border: 0;
     }
 
     .connect-button {
-        min-width: 116px;
+        min-width: 104px;
         background: #3a4a69;
     }
 
     .mode-select {
-        width: 132px;
+        width: 118px;
         border: 1px solid #4d5f82;
         background: #26334d;
         padding: 0 10px;
@@ -1987,16 +2369,16 @@
 
     .forge-workbench {
         display: grid;
-        grid-template-columns: 268px 1fr;
+        grid-template-columns: minmax(220px, 268px) minmax(0, 1fr);
         min-height: 0;
     }
 
     .block-palette {
         background: #1b2436;
-        padding: 24px 22px;
+        padding: 18px;
         display: flex;
         flex-direction: column;
-        gap: 18px;
+        gap: 14px;
         overflow: auto;
     }
 
@@ -2293,10 +2675,10 @@
         z-index: 45;
         display: flex;
         flex-direction: column;
-        width: 300px;
-        height: 266px;
-        min-width: 240px;
-        min-height: 210px;
+        width: 440px;
+        height: 360px;
+        min-width: 320px;
+        min-height: 260px;
         max-width: calc(100vw - 40px);
         max-height: calc(100vh - 88px);
         box-sizing: border-box;
@@ -2377,10 +2759,35 @@
         white-space: nowrap;
     }
 
+    .gps-map-actions {
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+    }
+
+    .map-action-button {
+        height: 28px;
+        border: 1px solid #4d5f82;
+        border-radius: 4px;
+        background: #26344d;
+        color: #ffffff;
+        padding: 0 9px;
+        font-size: 0.68rem;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .map-action-button:disabled {
+        cursor: not-allowed;
+        opacity: 0.48;
+    }
+
     .gps-map-frame {
         position: relative;
         flex: 1 1 auto;
-        min-height: 130px;
+        min-height: 190px;
         overflow: hidden;
         border: 1px solid #344466;
         border-radius: 5px;
@@ -2391,6 +2798,147 @@
         width: 100%;
         height: 100%;
         display: block;
+    }
+
+    .gps-map.leaflet-container {
+        position: relative;
+        overflow: hidden;
+        background: #182235;
+        outline-style: none;
+        font-family: inherit;
+        touch-action: pan-x pan-y;
+    }
+
+    .gps-map .leaflet-pane,
+    .gps-map .leaflet-tile,
+    .gps-map .leaflet-marker-icon,
+    .gps-map .leaflet-marker-shadow,
+    .gps-map .leaflet-tile-container,
+    .gps-map .leaflet-pane > svg,
+    .gps-map .leaflet-pane > canvas,
+    .gps-map .leaflet-zoom-box,
+    .gps-map .leaflet-image-layer,
+    .gps-map .leaflet-layer {
+        position: absolute;
+        left: 0;
+        top: 0;
+    }
+
+    .gps-map .leaflet-container {
+        overflow: hidden;
+    }
+
+    .gps-map .leaflet-tile,
+    .gps-map .leaflet-marker-icon,
+    .gps-map .leaflet-marker-shadow {
+        user-select: none;
+        -webkit-user-drag: none;
+    }
+
+    .gps-map .leaflet-tile {
+        width: 256px;
+        height: 256px;
+        border: 0;
+        visibility: inherit;
+    }
+
+    .gps-map .leaflet-map-pane,
+    .gps-map .leaflet-tile-pane,
+    .gps-map .leaflet-overlay-pane,
+    .gps-map .leaflet-shadow-pane,
+    .gps-map .leaflet-marker-pane,
+    .gps-map .leaflet-tooltip-pane,
+    .gps-map .leaflet-popup-pane {
+        z-index: 200;
+    }
+
+    .gps-map .leaflet-control-container .leaflet-top,
+    .gps-map .leaflet-control-container .leaflet-bottom {
+        position: absolute;
+        z-index: 1000;
+        pointer-events: none;
+    }
+
+    .gps-map .leaflet-control-container .leaflet-top {
+        top: 0;
+    }
+
+    .gps-map .leaflet-control-container .leaflet-right {
+        right: 0;
+    }
+
+    .gps-map .leaflet-control-container .leaflet-bottom {
+        bottom: 0;
+    }
+
+    .gps-map .leaflet-control-container .leaflet-left {
+        left: 0;
+    }
+
+    .gps-map .leaflet-control {
+        position: relative;
+        z-index: 1000;
+        pointer-events: auto;
+        float: left;
+        clear: both;
+    }
+
+    .gps-map .leaflet-right .leaflet-control {
+        float: right;
+    }
+
+    .gps-map .leaflet-top .leaflet-control {
+        margin-top: 10px;
+    }
+
+    .gps-map .leaflet-left .leaflet-control {
+        margin-left: 10px;
+    }
+
+    .gps-map .leaflet-right .leaflet-control {
+        margin-right: 10px;
+    }
+
+    .gps-map .leaflet-bottom .leaflet-control {
+        margin-bottom: 10px;
+    }
+
+    .gps-map .leaflet-control-zoom a {
+        display: block;
+        width: 26px;
+        height: 26px;
+        border-bottom: 1px solid #c9d1df;
+        background: #ffffff;
+        line-height: 26px;
+        text-align: center;
+        text-decoration: none;
+    }
+
+    .gps-map .leaflet-control-layers {
+        border-radius: 4px;
+        background: #ffffff;
+        box-shadow: 0 1px 5px rgba(0, 0, 0, 0.35);
+    }
+
+    .gps-map .leaflet-tooltip {
+        position: absolute;
+        padding: 2px 5px;
+        pointer-events: none;
+        white-space: nowrap;
+    }
+
+    .gps-map .leaflet-control-layers,
+    .gps-map .leaflet-control-zoom a {
+        color: #182235;
+    }
+
+    .route-point-label {
+        border: 0;
+        border-radius: 999px;
+        background: rgba(14, 165, 233, 0.92);
+        color: #ffffff;
+        box-shadow: none;
+        font-weight: 900;
     }
 
     .gps-axis {
@@ -2502,17 +3050,36 @@
         cursor: not-allowed;
     }
 
-    @@media (max-width: 1100px) {
+    @@media (max-width: 1180px) {
         .forge-toolbar {
-            grid-template-columns: 1fr;
+            grid-template-columns: minmax(160px, auto) minmax(220px, 1fr);
             height: auto;
-            padding: 12px 16px;
+            padding: 8px 14px;
+        }
+
+        .mission-actions {
+            grid-column: 1 / -1;
+            justify-content: flex-start;
         }
 
         .route-panel {
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr;
             height: auto;
-            padding: 10px 16px;
+            padding: 5px 16px;
+        }
+
+        .manager-grid,
+        .procedure-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .manager-card {
+            grid-template-columns: auto minmax(0, 1fr);
+            gap: 6px;
+        }
+
+        .mission-grid {
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
         }
 
         .route-builder {
@@ -2528,30 +3095,174 @@
             grid-column: 1;
         }
 
-        .telemetry,
-        .mission-actions {
-            justify-content: flex-start;
+        .forge-workbench {
+            grid-template-columns: 220px minmax(0, 1fr);
         }
 
         .forge-page {
-            grid-template-rows: auto minmax(560px, 1fr) auto;
+            grid-template-rows: auto auto minmax(560px, 1fr) auto;
         }
     }
 
     @@media (max-width: 760px) {
+        .forge-page {
+            min-height: 100vh;
+            margin: -1.1rem -0.75rem 0;
+            grid-template-rows: auto auto auto auto;
+            overflow: auto;
+        }
+
+        .forge-toolbar {
+            grid-template-columns: 1fr;
+            gap: 8px;
+            padding: 8px 12px;
+        }
+
+        .brand {
+            font-size: 1.2rem;
+        }
+
+        .brand-logo,
+        .brand-logo svg,
+        .brand-logo img {
+            width: 30px;
+            height: 30px;
+        }
+
+        .telemetry {
+            justify-content: flex-start;
+            gap: 10px 16px;
+            font-size: 0.86rem;
+        }
+
+        .mission-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .connect-button,
+        .run-button,
+        .abort-button,
+        .mode-select {
+            width: 100%;
+            min-width: 0;
+        }
+
+        .abort-button {
+            grid-column: span 2;
+        }
+
+        .route-panel {
+            padding: 6px 10px;
+        }
+
+        .manager-card {
+            grid-template-columns: 1fr;
+        }
+
+        .manager-heading {
+            align-items: flex-start;
+        }
+
+        .mission-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .route-field {
+            grid-template-columns: 58px minmax(0, 1fr);
+        }
+
         .forge-workbench {
             grid-template-columns: 1fr;
         }
 
         .block-palette {
             display: grid;
-            grid-template-columns: 1fr;
-            max-height: 420px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            max-height: 300px;
+            padding: 10px;
+            gap: 10px;
+        }
+
+        .mission-canvas {
+            min-height: 520px;
         }
 
         .chain {
             align-items: flex-start;
-            margin: 72px auto;
+            margin: 44px 12px 160px;
+            transform-origin: top left;
+        }
+
+        .gps-map-card {
+            left: 10px;
+            right: 10px;
+            bottom: 10px;
+            width: auto !important;
+            height: 260px !important;
+            min-width: 0;
+            min-height: 220px;
+            max-width: none;
+            max-height: 45vh;
+        }
+
+        .gps-map-resize-handle {
+            display: none;
+        }
+
+        .gps-map-title {
+            gap: 8px;
+            font-size: 0.76rem;
+        }
+
+        .gps-map-actions {
+            gap: 6px;
+        }
+
+        .map-action-button {
+            padding: 0 7px;
+            font-size: 0.62rem;
+        }
+    }
+
+    @@media (max-width: 460px) {
+        .mission-actions {
+            grid-template-columns: 1fr;
+        }
+
+        .abort-button {
+            grid-column: auto;
+        }
+
+        .block-palette {
+            grid-template-columns: 1fr;
+            max-height: 260px;
+        }
+
+        .manager-heading {
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .route-field {
+            grid-template-columns: 1fr;
+            gap: 3px;
+        }
+
+        .gps-map-card {
+            height: 230px !important;
+            max-height: 42vh;
+        }
+
+        .gps-map-title {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .gps-map-actions {
+            width: 100%;
+            justify-content: space-between;
         }
     }
 </style>

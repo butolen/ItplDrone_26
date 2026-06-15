@@ -1,3 +1,3 @@
-from DB.repository import DroneForgeRepository
+from .repository import DroneForgeRepository
 
 __all__ = ["DroneForgeRepository"]

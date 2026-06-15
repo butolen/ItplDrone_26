@@ -111,6 +111,22 @@ class DroneForgeRepository:
         ]
         return result
 
+    def delete_sequence(self, sequence_id: str) -> dict[str, Any]:
+        self.ensure_schema()
+        object_id = self._object_id(sequence_id)
+        sequence = self.sequences.find_one({"_id": object_id})
+        if sequence is None:
+            raise KeyError(f"Sequence not found: {sequence_id}")
+
+        commands_deleted = self.commands.delete_many({"sequence_id": sequence_id}).deleted_count
+        self.routes.update_many({"sequence_id": sequence_id}, {"$set": {"sequence_id": None}})
+        self.sequences.delete_one({"_id": object_id})
+        return {
+            "success": True,
+            "sequence_id": sequence_id,
+            "commands_deleted": commands_deleted,
+        }
+
     def add_command(
         self,
         sequence_id: str,
@@ -192,6 +208,21 @@ class DroneForgeRepository:
             raise KeyError(f"Route not found: {route_id}")
 
         return self._serialize_route(route, include_points=True)
+
+    def delete_route(self, route_id: str) -> dict[str, Any]:
+        self.ensure_schema()
+        object_id = self._object_id(route_id)
+        route = self.routes.find_one({"_id": object_id})
+        if route is None:
+            raise KeyError(f"Route not found: {route_id}")
+
+        points_deleted = self.points.delete_many({"route_id": route_id}).deleted_count
+        self.routes.delete_one({"_id": object_id})
+        return {
+            "success": True,
+            "route_id": route_id,
+            "points_deleted": points_deleted,
+        }
 
     def add_point(
         self,

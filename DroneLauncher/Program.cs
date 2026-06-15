@@ -2,9 +2,9 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 
-const int WebGuiPort = 5763;
-const int PcQgcPort = 5764;
-const int PhoneQgcPort = 5765;
+const int WebGuiPort = 5773;
+const int PcQgcPort = 5774;
+const int PhoneQgcPort = 5775;
 const string GuiUrl = "http://localhost:5102/procedure";
 
 var options = LauncherOptions.Parse(args);
@@ -39,6 +39,7 @@ try
 
     if (!options.SkipSitl)
     {
+        await EnsureSitlReadyAsync();
         startedProcesses.Add(StartSitl());
     }
 
@@ -55,9 +56,9 @@ try
     }
 
     Console.WriteLine();
-    Console.WriteLine("Laeuft. WebGUI/API: tcp:127.0.0.1:5763");
-    Console.WriteLine("PC-QGroundControl: 127.0.0.1:5764");
-    Console.WriteLine("Handy-QGroundControl: <Windows-PC-IP>:5765");
+    Console.WriteLine("Laeuft. WebGUI/API: tcp:127.0.0.1:5773");
+    Console.WriteLine("PC-QGroundControl: 127.0.0.1:5774");
+    Console.WriteLine("Handy-QGroundControl: <Windows-PC-IP>:5775");
     Console.WriteLine();
     Console.WriteLine("Zum Beenden: q oder Ctrl+C.");
 
@@ -141,8 +142,11 @@ async Task ConfigurePortProxyAsync()
 ManagedProcess StartSitl()
 {
     var sitlCommand =
-        "cd ~/ardupilot/ArduCopter && " +
-        "../Tools/autotest/sim_vehicle.py -v ArduCopter -f quad --console --wipe --location=MeinStandort " +
+        "set -e; " +
+        "cd ~/ardupilot/ArduCopter; " +
+        "~/ardupilot/build/sitl/bin/arducopter -w --model + --speedup 1 --slave 0 --sim-address=127.0.0.1 -I0 --home 48.411008,15.593409,250,0 & " +
+        "sleep 5; " +
+        "~/venv-ardupilot/bin/mavproxy.py --daemon --master=tcp:127.0.0.1:5760 --sitl=127.0.0.1:5501 " +
         $"--out=tcpin:0.0.0.0:{WebGuiPort} " +
         $"--out=tcpin:0.0.0.0:{PcQgcPort} " +
         $"--out=tcpin:0.0.0.0:{PhoneQgcPort}";
@@ -155,12 +159,46 @@ ManagedProcess StartSitl()
     return StartManaged("sitl", "wsl.exe", ["bash", "-lc", sitlCommand], repoRoot);
 }
 
+async Task EnsureSitlReadyAsync()
+{
+    if (!OperatingSystem.IsWindows())
+    {
+        throw new InvalidOperationException("SITL-Start ist aktuell fuer WSL unter Windows konfiguriert.");
+    }
+
+    Console.WriteLine("[sitl] Pruefe WSL/ArduPilot...");
+    var checkResult = await RunCaptureAsync(
+        "wsl.exe",
+        ["bash", "-lc", "test -d ~/ardupilot && test -d ~/ardupilot/ArduCopter && test -x ~/venv-ardupilot/bin/mavproxy.py"],
+        repoRoot);
+
+    if (checkResult.ExitCode != 0)
+    {
+        Console.WriteLine(checkResult.Output);
+        throw new InvalidOperationException("ArduPilot oder MAVProxy wurde in WSL nicht gefunden. Erwartet: ~/ardupilot und ~/venv-ardupilot/bin/mavproxy.py.");
+    }
+
+    Console.WriteLine("[sitl] Baue/pruefe ArduCopter SITL...");
+    var buildResult = await RunCaptureAsync(
+        "wsl.exe",
+        ["bash", "-lc", "cd ~/ardupilot && ./waf configure --board sitl && ./waf copter"],
+        repoRoot);
+
+    if (buildResult.ExitCode != 0)
+    {
+        Console.WriteLine(buildResult.Output);
+        throw new InvalidOperationException("ArduCopter SITL konnte nicht gebaut werden.");
+    }
+}
+
 async Task InstallApiRequirementsAsync()
 {
     if (options.SkipInstall)
     {
         return;
     }
+
+    await EnsureApiVenvAsync();
 
     var python = ResolvePython(repoRoot);
     var apiDir = Path.Combine(repoRoot, "DroneApi");
@@ -174,11 +212,27 @@ async Task InstallApiRequirementsAsync()
     }
 }
 
+async Task EnsureApiVenvAsync()
+{
+    var venvPython = Path.Combine(repoRoot, ".venv", "Scripts", "python.exe");
+    if (File.Exists(venvPython))
+    {
+        return;
+    }
+
+    Console.WriteLine("[api] Erstelle Python-Umgebung .venv...");
+    var result = await RunCaptureAsync("python", ["-m", "venv", ".venv"], repoRoot);
+    if (result.ExitCode != 0)
+    {
+        Console.WriteLine(result.Output);
+        throw new InvalidOperationException("Python-Umgebung .venv konnte nicht erstellt werden.");
+    }
+}
+
 ManagedProcess StartApi()
 {
     var python = ResolvePython(repoRoot);
-    var apiDir = Path.Combine(repoRoot, "DroneApi");
-    return StartManaged("api", python, ["main.py"], apiDir);
+    return StartManaged("api", python, ["-m", "DroneApi.main"], repoRoot);
 }
 
 ManagedProcess StartGui()
@@ -297,7 +351,7 @@ async Task StopSitlInWslAsync()
 
     await RunBestEffortAsync(
         "wsl.exe",
-        ["bash", "-lc", "pkill -f 'sim_vehicle.py.*ArduCopter' || true; pkill -f 'MAVProxy' || true; pkill -f 'arducopter' || true"],
+        ["bash", "-lc", "pkill -f 'sim_vehicle.py.*ArduCopter' || true; pkill -f 'mavproxy.py' || true; pkill -f 'MAVProxy' || true; pkill -f 'arducopter' || true"],
         repoRoot);
 }
 
@@ -396,7 +450,7 @@ static void PrintHelp()
     Console.WriteLine("  --skip-api        Startet die FastAPI nicht.");
     Console.WriteLine("  --skip-gui        Startet die Blazor-WebGUI nicht.");
     Console.WriteLine("  --skip-portproxy  Richtet keine Windows-Portproxy-Regeln ein.");
-    Console.WriteLine("  --skip-install    Fuehrt pip install nicht aus.");
+    Console.WriteLine("  --skip-install    Fuehrt pip install nicht aus. SITL wird trotzdem geprueft/gebaut.");
     Console.WriteLine("  --no-browser      Oeffnet den Browser nicht automatisch.");
     Console.WriteLine("  --with-udp        Fuegt zusaetzlich UDP 192.168.240.1:14550 hinzu.");
     Console.WriteLine("  --help            Zeigt diese Hilfe.");

@@ -602,6 +602,8 @@ class DroneController:
         return {
             "gps_fix": self._last_gps_fix_type if self._last_gps_fix_type is not None else 0,
             "gps_satellites": self._last_satellites_visible if self._last_satellites_visible is not None else 0,
+            "mode": self._last_mode_name or "UNKNOWN",
+            "armed": self._last_armed if self._last_armed is not None else False,
             "latitude": self._last_latitude_deg if self._last_latitude_deg is not None else 0.0,
             "longitude": self._last_longitude_deg if self._last_longitude_deg is not None else 0.0,
             "gps_altitude": self._last_absolute_altitude_m if self._last_absolute_altitude_m is not None else 0.0,
@@ -629,6 +631,8 @@ class DroneController:
         return {
             "gps_fix": 0,
             "gps_satellites": 0,
+            "mode": "UNKNOWN",
+            "armed": False,
             "latitude": 0.0,
             "longitude": 0.0,
             "gps_altitude": 0.0,

@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 public class ConnectRequest
 {
     [JsonPropertyName("connection_string")]
-    public string ConnectionString { get; set; } = "udpin:0.0.0.0:14551";
+    public string ConnectionString { get; set; } = "tcp:127.0.0.1:5773";
 
     [JsonPropertyName("baud_rate")]
     public int BaudRate { get; set; } = 57600;

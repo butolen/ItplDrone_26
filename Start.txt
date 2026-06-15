@@ -2,9 +2,9 @@ DroneForge Start-Anleitung
 ==========================
 
 Ziel der Port-Aufteilung:
-- WebGUI/API nutzt MAVLink TCP auf Port 5763.
-- QGroundControl am PC nutzt MAVLink TCP auf Port 5764.
-- QGroundControl am Handy nutzt MAVLink TCP auf Port 5765.
+- WebGUI/API nutzt MAVLink TCP auf Port 5773.
+- QGroundControl am PC nutzt MAVLink TCP auf Port 5774.
+- QGroundControl am Handy nutzt MAVLink TCP auf Port 5775.
 - Alte MAVLink-Defaults werden nicht mehr verwendet, damit nichts kollidiert.
 
 
@@ -21,8 +21,8 @@ cd DroneLauncher
 dotnet run
 
 Der Launcher startet:
-- ArduCopter SITL in WSL
-- die MAVLink TCP-Ausgaenge 5763, 5764 und 5765
+- prueft/baut ArduCopter SITL in WSL
+- die MAVLink TCP-Ausgaenge 5773, 5774 und 5775
 - die Python-API
 - die Blazor-WebGUI
 
@@ -39,13 +39,18 @@ Manueller Start
 -------------------------------
 
 cd ~/ardupilot/ArduCopter
-../Tools/autotest/sim_vehicle.py -v ArduCopter -f quad --console --wipe --location=MeinStandort
+../Tools/autotest/sim_vehicle.py -v ArduCopter -f quad --console --wipe --custom-location=48.411008,15.593409,250,0
+
+Hinweis:
+- --custom-location nutzt feste Koordinaten und braucht keinen Online-Geocoder.
+- Format: Breitengrad,Laengengrad,Hoehe_in_Metern,Heading_in_Grad
+- Fuer deine aktuelle Position nur 48.411008,15.593409,250,0 ersetzen.
 
 Wenn die MAVProxy-Konsole offen ist, diese drei TCP-Ausgaenge hinzufuegen:
 
-output add tcpin:0.0.0.0:5763
-output add tcpin:0.0.0.0:5764
-output add tcpin:0.0.0.0:5765
+output add tcpin:0.0.0.0:5773
+output add tcpin:0.0.0.0:5774
+output add tcpin:0.0.0.0:5775
 
 Optional, nur wenn du QGroundControl per UDP-Auto-Connect verwenden willst:
 
@@ -55,7 +60,7 @@ output add 192.168.43.1:14550
 Hinweis:
 - 192.168.240.1 ist oft die Windows-Seite vom WSL-Netz.
 - 192.168.43.1 muss durch die echte Handy-IP ersetzt werden, falls du UDP nutzt.
-- Fuer die WebGUI bleibt TCP wichtig: tcp:127.0.0.1:5763.
+- Fuer die WebGUI bleibt TCP wichtig: tcp:127.0.0.1:5773.
 
 
 2) Windows PowerShell als Administrator: TCP-Ports von Windows nach WSL weiterleiten
@@ -63,17 +68,17 @@ Hinweis:
 
 $wslIp = (wsl hostname -I).Trim().Split()[0]
 
-netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=5763
-netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=5764
-netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=5765
+netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=5773
+netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=5774
+netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=5775
 
-netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=5763 connectaddress=$wslIp connectport=5763
-netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=5764 connectaddress=$wslIp connectport=5764
-netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=5765 connectaddress=$wslIp connectport=5765
+netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=5773 connectaddress=$wslIp connectport=5773
+netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=5774 connectaddress=$wslIp connectport=5774
+netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=5775 connectaddress=$wslIp connectport=5775
 
-netsh advfirewall firewall add rule name="DroneForge MAVLink TCP 5763" dir=in action=allow protocol=TCP localport=5763
-netsh advfirewall firewall add rule name="DroneForge MAVLink TCP 5764" dir=in action=allow protocol=TCP localport=5764
-netsh advfirewall firewall add rule name="DroneForge MAVLink TCP 5765" dir=in action=allow protocol=TCP localport=5765
+netsh advfirewall firewall add rule name="DroneForge MAVLink TCP 5773" dir=in action=allow protocol=TCP localport=5773
+netsh advfirewall firewall add rule name="DroneForge MAVLink TCP 5774" dir=in action=allow protocol=TCP localport=5774
+netsh advfirewall firewall add rule name="DroneForge MAVLink TCP 5775" dir=in action=allow protocol=TCP localport=5775
 
 Die delete-Befehle duerfen Fehler ausgeben, wenn die Regel noch nicht existiert.
 
@@ -98,7 +103,7 @@ dotnet run --build
 Im Browser dann die angezeigte localhost-Adresse oeffnen.
 Die WebGUI verbindet sich mit:
 
-tcp:127.0.0.1:5763
+tcp:127.0.0.1:5773
 
 
 5) QGroundControl verbinden
@@ -107,13 +112,13 @@ tcp:127.0.0.1:5763
 PC-QGroundControl:
 - Link Type: TCP
 - Host: 127.0.0.1
-- Port: 5764
+- Port: 5774
 
 Handy-QGroundControl:
 - Handy und PC muessen im selben WLAN sein.
 - Link Type: TCP
 - Host: IP-Adresse deines Windows-PCs im WLAN
-- Port: 5765
+- Port: 5775
 
 Deine Windows-PC-IP findest du in PowerShell mit:
 
@@ -129,7 +134,8 @@ set home 48.411008, 15.593409
 Port-Merker
 -----------
 
-5763 = WebGUI/API
-5764 = QGroundControl PC
-5765 = QGroundControl Handy
+5773 = WebGUI/API
+5774 = QGroundControl PC
+5775 = QGroundControl Handy
 14550/14551 = nur optionale UDP-Ausgaenge
+

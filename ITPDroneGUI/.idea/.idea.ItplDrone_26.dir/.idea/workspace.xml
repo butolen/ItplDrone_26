@@ -12,7 +12,40 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="feaa2f23-751d-4c3e-a005-c723d8c2f3c6" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/../.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/../.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DroneApi/DB/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/../DroneApi/DB/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DroneApi/DB/repository.py" beforeDir="false" afterPath="$PROJECT_DIR$/../DroneApi/DB/repository.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DroneApi/app/api.py" beforeDir="false" afterPath="$PROJECT_DIR$/../DroneApi/app/api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DroneApi/app/drone_controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/../DroneApi/app/drone_controller.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DroneApi/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/../DroneApi/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DroneLauncher/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../DroneLauncher/Program.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DroneLauncher/bin/Debug/net9.0/DroneLauncher.dll" beforeDir="false" afterPath="$PROJECT_DIR$/../DroneLauncher/bin/Debug/net9.0/DroneLauncher.dll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DroneLauncher/bin/Debug/net9.0/DroneLauncher.exe" beforeDir="false" afterPath="$PROJECT_DIR$/../DroneLauncher/bin/Debug/net9.0/DroneLauncher.exe" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DroneLauncher/bin/Debug/net9.0/DroneLauncher.pdb" beforeDir="false" afterPath="$PROJECT_DIR$/../DroneLauncher/bin/Debug/net9.0/DroneLauncher.pdb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/DroneLauncher.AssemblyInfo.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/DroneLauncher.AssemblyInfo.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/DroneLauncher.AssemblyInfoInputs.cache" beforeDir="false" afterPath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/DroneLauncher.AssemblyInfoInputs.cache" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/DroneLauncher.GeneratedMSBuildEditorConfig.editorconfig" beforeDir="false" afterPath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/DroneLauncher.GeneratedMSBuildEditorConfig.editorconfig" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/DroneLauncher.GlobalUsings.g.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/DroneLauncher.GlobalUsings.g.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/DroneLauncher.assets.cache" beforeDir="false" afterPath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/DroneLauncher.assets.cache" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/DroneLauncher.csproj.CoreCompileInputs.cache" beforeDir="false" afterPath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/DroneLauncher.csproj.CoreCompileInputs.cache" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/DroneLauncher.csproj.FileListAbsolute.txt" beforeDir="false" afterPath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/DroneLauncher.csproj.FileListAbsolute.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/DroneLauncher.dll" beforeDir="false" afterPath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/DroneLauncher.dll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/DroneLauncher.genruntimeconfig.cache" beforeDir="false" afterPath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/DroneLauncher.genruntimeconfig.cache" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/DroneLauncher.pdb" beforeDir="false" afterPath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/DroneLauncher.pdb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/DroneLauncher.sourcelink.json" beforeDir="false" afterPath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/DroneLauncher.sourcelink.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/apphost.exe" beforeDir="false" afterPath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/apphost.exe" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/ref/DroneLauncher.dll" beforeDir="false" afterPath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/ref/DroneLauncher.dll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/refint/DroneLauncher.dll" beforeDir="false" afterPath="$PROJECT_DIR$/../DroneLauncher/obj/Debug/net9.0/refint/DroneLauncher.dll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DroneLauncher/obj/DroneLauncher.csproj.nuget.dgspec.json" beforeDir="false" afterPath="$PROJECT_DIR$/../DroneLauncher/obj/DroneLauncher.csproj.nuget.dgspec.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DroneLauncher/obj/DroneLauncher.csproj.nuget.g.props" beforeDir="false" afterPath="$PROJECT_DIR$/../DroneLauncher/obj/DroneLauncher.csproj.nuget.g.props" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DroneLauncher/obj/project.assets.json" beforeDir="false" afterPath="$PROJECT_DIR$/../DroneLauncher/obj/project.assets.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DroneLauncher/obj/project.nuget.cache" beforeDir="false" afterPath="$PROJECT_DIR$/../DroneLauncher/obj/project.nuget.cache" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/.idea.ItplDrone_26.dir/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.ItplDrone_26.dir/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Components/App.razor" beforeDir="false" afterPath="$PROJECT_DIR$/Components/App.razor" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Components/Pages/Home.razor" beforeDir="false" afterPath="$PROJECT_DIR$/Components/Pages/Home.razor" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Components/Pages/Procedure.razor" beforeDir="false" afterPath="$PROJECT_DIR$/Components/Pages/Procedure.razor" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Model/ConnectRequest.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Model/ConnectRequest.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Services/DroneApiService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Services/DroneApiService.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/bin/Debug/net9.0/ITPDroneGUI.dll" beforeDir="false" afterPath="$PROJECT_DIR$/bin/Debug/net9.0/ITPDroneGUI.dll" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/bin/Debug/net9.0/ITPDroneGUI.exe" beforeDir="false" afterPath="$PROJECT_DIR$/bin/Debug/net9.0/ITPDroneGUI.exe" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/bin/Debug/net9.0/ITPDroneGUI.pdb" beforeDir="false" afterPath="$PROJECT_DIR$/bin/Debug/net9.0/ITPDroneGUI.pdb" afterDir="false" />
@@ -20,12 +53,9 @@
       <change beforePath="$PROJECT_DIR$/bin/Debug/net9.0/ITPDroneGUI.staticwebassets.runtime.json" beforeDir="false" afterPath="$PROJECT_DIR$/bin/Debug/net9.0/ITPDroneGUI.staticwebassets.runtime.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/obj/Debug/net9.0/ITPDroneGUI.AssemblyInfo.cs" beforeDir="false" afterPath="$PROJECT_DIR$/obj/Debug/net9.0/ITPDroneGUI.AssemblyInfo.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/obj/Debug/net9.0/ITPDroneGUI.AssemblyInfoInputs.cache" beforeDir="false" afterPath="$PROJECT_DIR$/obj/Debug/net9.0/ITPDroneGUI.AssemblyInfoInputs.cache" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/obj/Debug/net9.0/ITPDroneGUI.GeneratedMSBuildEditorConfig.editorconfig" beforeDir="false" afterPath="$PROJECT_DIR$/obj/Debug/net9.0/ITPDroneGUI.GeneratedMSBuildEditorConfig.editorconfig" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/obj/Debug/net9.0/ITPDroneGUI.assets.cache" beforeDir="false" afterPath="$PROJECT_DIR$/obj/Debug/net9.0/ITPDroneGUI.assets.cache" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/obj/Debug/net9.0/ITPDroneGUI.csproj.CoreCompileInputs.cache" beforeDir="false" afterPath="$PROJECT_DIR$/obj/Debug/net9.0/ITPDroneGUI.csproj.CoreCompileInputs.cache" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/obj/Debug/net9.0/ITPDroneGUI.csproj.FileListAbsolute.txt" beforeDir="false" afterPath="$PROJECT_DIR$/obj/Debug/net9.0/ITPDroneGUI.csproj.FileListAbsolute.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/obj/Debug/net9.0/ITPDroneGUI.dll" beforeDir="false" afterPath="$PROJECT_DIR$/obj/Debug/net9.0/ITPDroneGUI.dll" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/obj/Debug/net9.0/ITPDroneGUI.genruntimeconfig.cache" beforeDir="false" afterPath="$PROJECT_DIR$/obj/Debug/net9.0/ITPDroneGUI.genruntimeconfig.cache" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/obj/Debug/net9.0/ITPDroneGUI.pdb" beforeDir="false" afterPath="$PROJECT_DIR$/obj/Debug/net9.0/ITPDroneGUI.pdb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/obj/Debug/net9.0/ITPDroneGUI.sourcelink.json" beforeDir="false" afterPath="$PROJECT_DIR$/obj/Debug/net9.0/ITPDroneGUI.sourcelink.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/obj/Debug/net9.0/apphost.exe" beforeDir="false" afterPath="$PROJECT_DIR$/obj/Debug/net9.0/apphost.exe" afterDir="false" />
@@ -40,12 +70,11 @@
       <change beforePath="$PROJECT_DIR$/obj/Debug/net9.0/staticwebassets.build.json" beforeDir="false" afterPath="$PROJECT_DIR$/obj/Debug/net9.0/staticwebassets.build.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/obj/Debug/net9.0/staticwebassets.build.json.cache" beforeDir="false" afterPath="$PROJECT_DIR$/obj/Debug/net9.0/staticwebassets.build.json.cache" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/obj/Debug/net9.0/staticwebassets.development.json" beforeDir="false" afterPath="$PROJECT_DIR$/obj/Debug/net9.0/staticwebassets.development.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/obj/ITPDroneGUI.csproj.nuget.dgspec.json" beforeDir="false" afterPath="$PROJECT_DIR$/obj/ITPDroneGUI.csproj.nuget.dgspec.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/obj/ITPDroneGUI.csproj.nuget.g.props" beforeDir="false" afterPath="$PROJECT_DIR$/obj/ITPDroneGUI.csproj.nuget.g.props" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/obj/project.assets.json" beforeDir="false" afterPath="$PROJECT_DIR$/obj/project.assets.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/obj/project.nuget.cache" beforeDir="false" afterPath="$PROJECT_DIR$/obj/project.nuget.cache" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/obj/project.packagespec.json" beforeDir="false" afterPath="$PROJECT_DIR$/obj/project.packagespec.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/obj/rider.project.restore.info" beforeDir="false" afterPath="$PROJECT_DIR$/obj/rider.project.restore.info" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/wwwroot/js/procedureMap.js" beforeDir="false" afterPath="$PROJECT_DIR$/wwwroot/js/procedureMap.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Start.txt" beforeDir="false" afterPath="$PROJECT_DIR$/../Start.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -146,27 +175,28 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;.NET Launch Settings Profile.ITPDroneGUI: http.executor&quot;: &quot;Run&quot;,
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
-    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
-    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;fixxxxx&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;Shelf.Project.Settings&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    ".NET Launch Settings Profile.ITPDroneGUI: http.executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "cidr.known.project.marker": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "git-widget-placeholder": "fixxxxx",
+    "node.js.detected.package.eslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "Shelf.Project.Settings",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RunManager" selected=".NET Launch Settings Profile.ITPDroneGUI: http">
     <configuration name="ITPDroneGUI: http" type="LaunchSettings" factoryName=".NET Launch Settings Profile">
       <option name="LAUNCH_PROFILE_PROJECT_FILE_PATH" value="$PROJECT_DIR$/ITPDroneGUI.csproj" />
@@ -211,6 +241,8 @@
       <workItem from="1780296624262" duration="19000" />
       <workItem from="1780914190846" duration="700000" />
       <workItem from="1781008780768" duration="997000" />
+      <workItem from="1781455228020" duration="688000" />
+      <workItem from="1781502707251" duration="2065000" />
     </task>
     <servers />
   </component>

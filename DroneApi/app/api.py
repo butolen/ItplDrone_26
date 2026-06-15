@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+import math
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
@@ -354,6 +355,14 @@ def get_sequence(sequence_id: str) -> dict:
         raise _db_error(exception)
 
 
+@app.delete("/sequences/{sequence_id}")
+def delete_sequence(sequence_id: str) -> dict:
+    try:
+        return repository.delete_sequence(sequence_id)
+    except Exception as exception:
+        raise _db_error(exception)
+
+
 @app.post("/sequences/{sequence_id}/commands")
 def add_sequence_command(sequence_id: str, request: StoredCommandRequest) -> dict:
     try:
@@ -411,6 +420,14 @@ def get_navigation_route(route_id: str) -> dict:
         raise _db_error(exception)
 
 
+@app.delete("/navigation/routes/{route_id}")
+def delete_navigation_route(route_id: str) -> dict:
+    try:
+        return repository.delete_route(route_id)
+    except Exception as exception:
+        raise _db_error(exception)
+
+
 @app.post("/navigation/routes/{route_id}/execute-guided")
 def execute_navigation_route(route_id: str, request: ExecuteRouteRequest | None = None) -> dict:
     return execute_guided_route(route_id, request)
@@ -428,6 +445,14 @@ def list_routes() -> list[dict]:
 def get_route(route_id: str) -> dict:
     try:
         return repository.get_route(route_id)
+    except Exception as exception:
+        raise _db_error(exception)
+
+
+@app.delete("/routes/{route_id}")
+def delete_route(route_id: str) -> dict:
+    try:
+        return repository.delete_route(route_id)
     except Exception as exception:
         raise _db_error(exception)
 
@@ -451,23 +476,131 @@ def add_route_point(route_id: str, request: RoutePointRequest) -> dict:
 def execute_guided_route(route_id: str, request: ExecuteRouteRequest | None = None) -> dict:
     try:
         points = repository.get_route_points(route_id)
-        drone_controller.set_mode("GUIDED")
-
         wait_seconds = request.wait_seconds_between_points if request else 3.0
-        for point in points:
+        executed_points = 0
+
+        for index, point in enumerate(points, start=1):
+            altitude = float(point["altitude_meters"])
+            ground_altitude = _prepare_for_takeoff()
+            target_altitude = ground_altitude + max(1.0, altitude)
+            drone_controller.takeoff(altitude_meters=target_altitude, arm_first=False)
             drone_controller.goto_global_relative(
                 point["latitude"],
                 point["longitude"],
-                point["altitude_meters"]
+                target_altitude
             )
+            _wait_for_route_point(point, target_altitude=target_altitude, timeout_seconds=120.0)
+            drone_controller.land()
+            _wait_for_landing(timeout_seconds=90.0)
+            executed_points = index
+
             if wait_seconds > 0:
                 time.sleep(wait_seconds)
 
         return {
             "success": True,
             "route_id": route_id,
-            "points_executed": len(points),
-            "mode": "GUIDED"
+            "points_executed": executed_points,
+            "mode": "LAND"
         }
     except Exception as exception:
         raise _db_error(exception)
+
+
+def _prepare_for_takeoff(timeout_seconds: float = 30.0) -> float:
+    end_time = time.time() + timeout_seconds
+    stable_since: float | None = None
+    stable_reference_altitude: float | None = None
+
+    while time.time() < end_time:
+        telemetry = drone_controller.get_telemetry()
+        altitude = float(telemetry.get("relative_alt") or 0.0)
+        armed = bool(telemetry.get("armed"))
+
+        if stable_reference_altitude is None or abs(altitude - stable_reference_altitude) > 0.05:
+            stable_reference_altitude = altitude
+            stable_since = time.time()
+        elif stable_since is not None and time.time() - stable_since >= 3.0 and not armed:
+            drone_controller.set_mode("GUIDED")
+            time.sleep(0.5)
+            drone_controller.arm()
+            return stable_reference_altitude
+
+        if armed and stable_since is not None and time.time() - stable_since >= 3.0:
+            try:
+                drone_controller.disarm()
+            except Exception:
+                pass
+
+        time.sleep(0.5)
+
+    raise TimeoutError("Drone did not become ready for the next takeoff.")
+
+
+def _wait_for_route_point(point: dict, target_altitude: float, timeout_seconds: float) -> None:
+    target_latitude = float(point["latitude"])
+    target_longitude = float(point["longitude"])
+    end_time = time.time() + timeout_seconds
+
+    while time.time() < end_time:
+        telemetry = drone_controller.get_telemetry()
+        latitude = float(telemetry.get("latitude") or 0.0)
+        longitude = float(telemetry.get("longitude") or 0.0)
+        altitude = float(telemetry.get("relative_alt") or 0.0)
+
+        if latitude and longitude:
+            distance_meters = _distance_meters(latitude, longitude, target_latitude, target_longitude)
+            if distance_meters <= 2.5 and abs(altitude - target_altitude) <= 1.0:
+                return
+
+        time.sleep(0.5)
+
+    raise TimeoutError(f"Route point not reached: {target_latitude:.7f}, {target_longitude:.7f}")
+
+
+def _wait_for_landing(timeout_seconds: float) -> None:
+    end_time = time.time() + timeout_seconds
+    stable_since: float | None = None
+    stable_reference_altitude: float | None = None
+
+    while time.time() < end_time:
+        telemetry = drone_controller.get_telemetry()
+        altitude = float(telemetry.get("relative_alt") or 0.0)
+        armed = bool(telemetry.get("armed"))
+        mode = str(telemetry.get("mode") or "").upper()
+
+        if mode == "LAND":
+            if stable_reference_altitude is None or abs(altitude - stable_reference_altitude) > 0.05:
+                stable_reference_altitude = altitude
+                stable_since = time.time()
+            elif stable_since is not None and time.time() - stable_since >= 3.0:
+                try:
+                    drone_controller.disarm()
+                except Exception:
+                    pass
+
+                time.sleep(0.75)
+                telemetry = drone_controller.get_telemetry()
+                if not bool(telemetry.get("armed")):
+                    return
+
+                stable_since = time.time()
+        else:
+            stable_since = None
+            stable_reference_altitude = None
+
+        if stable_since is not None and time.time() - stable_since >= 3.0 and not armed:
+            return
+
+        time.sleep(0.5)
+
+    raise TimeoutError("Landing timeout before next route point.")
+
+
+def _distance_meters(first_latitude: float, first_longitude: float, second_latitude: float, second_longitude: float) -> float:
+    latitude_scale = 111_320.0
+    average_latitude = math.radians((first_latitude + second_latitude) / 2.0)
+    longitude_scale = latitude_scale * math.cos(average_latitude)
+    north = (second_latitude - first_latitude) * latitude_scale
+    east = (second_longitude - first_longitude) * longitude_scale
+    return (north * north + east * east) ** 0.5
