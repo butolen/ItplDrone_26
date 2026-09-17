@@ -13,6 +13,7 @@ class DroneController:
     RC_NEUTRAL = 1500
     RC_MAX = 2000
     RC_IGNORE = 65535
+    FORCE_ARM_MAGIC = 21196
 
     def __init__(self) -> None:
         self._master: Optional[mavutil.mavfile] = None
@@ -143,7 +144,11 @@ class DroneController:
             )
             self._remember_mode(mode_name)
 
-    def arm(self, timeout: float = 10.0) -> None:
+    def set_param(self, name: str, value: float) -> None:
+        with self._lock:
+            self.master.param_set_send(name, float(value))
+
+    def arm(self, timeout: float = 10.0, force: bool = False) -> None:
         print("[ARM] Sende ARM")
 
         self.release_rc_override()
@@ -156,7 +161,7 @@ class DroneController:
                 mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM,
                 0,
                 1,
-                0,
+                self.FORCE_ARM_MAGIC if force else 0,
                 0,
                 0,
                 0,
@@ -211,6 +216,52 @@ class DroneController:
         with self._lock:
             self.master.arducopter_disarm()
         self._remember_armed(False)
+
+    def disarm_confirmed(
+        self,
+        force: bool = True,
+        attempts: int = 3,
+        timeout_per_attempt: float = 1.5,
+    ) -> bool:
+        """Disarm and wait for a heartbeat that reports DISARMED, retrying if needed.
+
+        ArduCopter rejects a normal disarm while its land detector thinks the vehicle
+        is flying (e.g. strapped down after a throttle burst in ALT_HOLD), so the
+        motors keep spinning. force=True sends param2=21196, which it always accepts.
+        """
+        for attempt in range(1, attempts + 1):
+            sent_at = time.time()
+            self.send_rc_override(throttle=self.RC_MIN)
+            with self._lock:
+                self.master.mav.command_long_send(
+                    self.master.target_system,
+                    self._target_autopilot_component(),
+                    mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM,
+                    0,
+                    0,
+                    self.FORCE_ARM_MAGIC if force else 0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                )
+            print(f"[DISARM] Sende DISARM (Versuch {attempt}, force={force})")
+
+            deadline = sent_at + timeout_per_attempt
+            while time.time() < deadline:
+                self._drain_mavlink_messages(0.05)
+                heartbeat_after_command = (
+                    self._last_heartbeat_time is not None
+                    and self._last_heartbeat_time > sent_at
+                )
+                if heartbeat_after_command and self._last_armed is False:
+                    print("[DISARM] Status: DISARMED")
+                    self.release_rc_override()
+                    return True
+
+        print("[DISARM] Keine DISARMED-Bestaetigung erhalten")
+        return False
 
     def takeoff(
         self,

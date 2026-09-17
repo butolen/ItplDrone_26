@@ -95,6 +95,7 @@
                         <button type="button" @onclick="SetModeAsync" disabled="@isBusy">Set Mode</button>
                         <button type="button" @onclick="ArmAsync" disabled="@isBusy">Arm</button>
                         <button type="button" @onclick="DisarmAsync" disabled="@isBusy">Disarm</button>
+                        <button type="button" @onclick="SpinPropsAsync" disabled="@isBusy">Spin Props</button>
                         <button class="primary-button" type="button" @onclick="TakeoffAsync" disabled="@isBusy">Takeoff</button>
                         <button class="danger-button" type="button" @onclick="LandAsync" disabled="@isBusy">Land</button>
                     </div>
@@ -548,6 +549,7 @@
     private Task SetModeAsync() => Handle("flight", "Set mode", () => Drone.SetMode(selectedMode));
     private Task ArmAsync() => Handle("flight", "Arm", Drone.Arm);
     private Task DisarmAsync() => Handle("flight", "Disarm", Drone.Disarm);
+    private Task SpinPropsAsync() => Handle("flight", "Spin props", Drone.SpinProps);
     private Task TakeoffAsync() => Handle("flight", "Takeoff", () => Drone.Takeoff(takeoffAltitudeMeters, armBeforeTakeoff));
     private Task LandAsync() => Handle("flight", "Land", Drone.Land);
 

@@ -624,3 +624,133 @@ Example:
   "detail": "Keine aktive MAVLink-Verbindung."
 }
 ```
+
+## Physical Button: Prop Spin
+
+A push button on an ATmega328P (Elegoo Uno) spins the props for a few seconds. The
+firmware is TX-only and sends plain lines at 115200 8N1, terminated with `\r\n`:
+`READY` once on boot, `BTN` on every debounced press, `HB` every second. Anything
+else is ignored.
+
+A background daemon thread (`DroneApi/app/button_listener.py`) reads the port and a
+press calls the same function as the API endpoint below, so both paths behave
+identically.
+
+### Wiring
+
+Button from **D2 (PD2) to GND**. The internal pull-up is enabled in firmware, so the
+pin reads low while the button is held. D13 lights up while pressed.
+
+### Exhibition Mode
+
+Built for a fair stand: the more often the button is mashed, the faster the props spin.
+
+- Every press adds `1/BUTTON_PRESS_STEPS` (default 1/20) to a throttle level between 0 and 1
+  and holds it for `BUTTON_PRESS_HOLD_SECONDS` (0.3 s).
+- After the hold the level halves every `BUTTON_DECAY_HALF_LIFE_SECONDS` (0.3 s) until it is
+  below half a step, then drops to idle. From full throttle that is about 1.5 s after the
+  last press.
+- A background loop sends the level as RC throttle override (CH3, same path as the GUI
+  joystick) 50 times per second: level 0 is `1000`, anything above maps linearly to
+  `1300..2000`. In STABILIZE the throttle drives the motors directly, so a single press
+  is already visible.
+- The first press arms the drone in `STABILIZE` (after writing `DISARM_DELAY=0`). It then
+  **stays armed**. If it gets disarmed (GUI, failsafe), the stream stops and the next press
+  arms again. A failed arm is retried at most every 2 s.
+- A press never blocks.
+
+Each step is +35 PWM. Roughly, a steady press rate settles at:
+
+| Presses per second | Throttle |
+| --- | --- |
+| 1 | idle |
+| 2 | ~1360 |
+| 3 | ~1730 |
+| 4+ | 2000 |
+
+While the button loop streams throttle, do not use the GUI virtual joystick; both send
+RC override and would fight. `POST /disarm` resets the level and force-disarms
+(`param2=21196`) until a heartbeat confirms, because after a throttle burst a strapped-down drone is
+often considered flying and a normal disarm is rejected.
+
+### `POST /props/spin`
+
+One virtual button press. Takes no body. The GUI calls it from the **Spin Props** button.
+
+```json
+{
+  "success": true,
+  "started": true,
+  "outcome": "pressed",
+  "message": "Throttle level raised.",
+  "level": 0.15,
+  "throttle_pwm": 1660,
+  "last_sent_pwm": 1620,
+  "presses": 3,
+  "armed": true,
+  "streaming": true
+}
+```
+
+`outcome` is `pressed`, `not_connected` or `dry_run`.
+
+### `GET /props/state`
+
+The same state fields without pressing, handy for watching the level decay.
+
+### Configuration
+
+All keys are environment variables, read at API startup:
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `BUTTON_SERIAL_PORT` | `COM4` | Serial port of the Uno. |
+| `BUTTON_BAUD_RATE` | `115200` | Must match the firmware. |
+| `BUTTON_FLIGHT_MODE` | `STABILIZE` | Mode set before arming. Throttle goes straight to the motors, so they spin down as soon as presses stop. Needs `DISARM_DELAY=0`, otherwise idle throttle auto-disarms. |
+| `BUTTON_PRESS_STEPS` | `20` | Presses from idle to full throttle (ignoring decay). |
+| `BUTTON_PRESS_HOLD_SECONDS` | `0.3` | How long the level holds after a press before decaying. `0` disables decay entirely (throttle test). |
+| `BUTTON_DECAY_HALF_LIFE_SECONDS` | `0.3` | After the hold, the level halves this often. `0` drops straight to idle. |
+| `BUTTON_MIN_THROTTLE_PWM` | `1300` | Throttle for the smallest level above 0. In `ALT_HOLD` keep it above ~1600, below mid-stick means descend and the motors stay at idle. |
+| `BUTTON_MAX_THROTTLE_PWM` | `2000` | Throttle ceiling at level 1. |
+| `BUTTON_DISABLE_AUTO_DISARM` | `true` | Write `DISARM_DELAY=0` before arming so the drone stays armed while idle. Persists on the flight controller. |
+| `BUTTON_FORCE_ARM` | `false` | Arm with `param2=21196`, bypassing the pre-arm checks. |
+| `BUTTON_DRY_RUN` | `false` | Log presses and levels, send no MAVLink commands. |
+
+If the port is missing or busy at startup, the API still starts normally and the
+listener retries every 2 seconds, forever. Losing the heartbeat for 3 seconds or an
+unplugged cable closes the port and reconnects the same way.
+
+### Safe Test Order
+
+1. **Dry run.** Set `BUTTON_DRY_RUN=true`, press the button, confirm `[PROPS] press ... (dry run)`
+   appears in the log and the motors stay silent.
+2. **Props off.** Remove the propellers, turn dry run off, and do a real spin.
+3. **Props on.** Only with the drone strapped down and everyone clear of the disc.
+
+### When Arming Fails
+
+The arm attempt raises with the autopilot's own `STATUSTEXT` in the message. The usual
+causes on ArduPilot:
+
+- No RC receiver or RC failsafe active.
+- No GPS lock, when the current mode needs a position estimate.
+- Wrong flight mode (`GUIDED` and `LOITER` need GPS; `STABILIZE` and `ALT_HOLD` do not).
+- Throttle stick not at minimum.
+
+`BUTTON_FORCE_ARM=true` skips these checks. It is logged as a warning on every use and
+should stay off unless the props are removed.
+
+### Docker
+
+The API must run **natively on Windows** for this feature: Docker Desktop cannot pass a
+COM port into a container. Only MongoDB runs in Docker (`DroneApi/DB/docker-compose.yml`).
+On Linux the API container would need `--device /dev/ttyUSB0` and `BUTTON_SERIAL_PORT=/dev/ttyUSB0`.
+
+### Tests
+
+No hardware needed:
+
+```powershell
+python -m pip install -r DroneApi/requirements-dev.txt
+python -m pytest DroneApi/tests
+```

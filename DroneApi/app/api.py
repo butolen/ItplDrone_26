@@ -2,13 +2,18 @@ from __future__ import annotations
 
 import time
 import math
-from typing import Any
+from contextlib import asynccontextmanager
+from typing import Any, AsyncIterator
 
 from fastapi import FastAPI, HTTPException
 
 from DroneApi.DB.repository import DroneForgeRepository
+from DroneApi.app.button_config import ButtonConfig
+from DroneApi.app.button_listener import ButtonListener
 from DroneApi.app.command_executor import CommandExecutor
 from DroneApi.app.drone_controller import DroneController
+from DroneApi.app.logging_setup import configure_logging
+from DroneApi.app.prop_spinner import PropSpinner
 from DroneApi.models.models import (
     ConnectRequest,
     ExecuteRouteRequest,
@@ -28,11 +33,34 @@ from DroneApi.models.models import (
     YawRequest,
 )
 
-app = FastAPI(title="Drone Control API")
+configure_logging()
 
 drone_controller = DroneController()
 command_executor = CommandExecutor(drone_controller)
 repository = DroneForgeRepository()
+button_config = ButtonConfig.from_env()
+prop_spinner = PropSpinner(drone_controller, button_config)
+
+
+def _on_button_press() -> None:
+    prop_spinner.request_spin(source="button")
+
+
+button_listener = ButtonListener(button_config, on_press=_on_button_press)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    prop_spinner.start()
+    button_listener.start()
+    try:
+        yield
+    finally:
+        button_listener.stop()
+        prop_spinner.stop()
+
+
+app = FastAPI(title="Drone Control API", lifespan=lifespan)
 
 
 def _rc_response(channels: list[int], duration_seconds: float, release_after: bool) -> dict:
@@ -129,10 +157,24 @@ def arm() -> dict:
 @app.post("/disarm")
 def disarm() -> dict:
     try:
-        drone_controller.disarm()
+        prop_spinner.reset()
+        # Forced and confirmed: after a throttle burst from the button (or in ALT_HOLD)
+        # ArduCopter often believes it is flying and rejects a normal disarm.
+        if not drone_controller.disarm_confirmed(force=True):
+            raise RuntimeError("Disarm not confirmed by heartbeat")
         return {"success": True}
     except Exception as exception:
         raise HTTPException(status_code=500, detail=str(exception))
+
+
+@app.post("/props/spin")
+def spin_props() -> dict:
+    return prop_spinner.request_spin(source="api")
+
+
+@app.get("/props/state")
+def props_state() -> dict:
+    return prop_spinner.state()
 
 
 @app.post("/takeoff")

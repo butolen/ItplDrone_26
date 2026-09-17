@@ -449,6 +449,11 @@ public class DroneApiService
         return PostAsync<object>("/disarm");
     }
 
+    public Task<ApiResponse<object>> SpinProps()
+    {
+        return PostAsync<object>("/props/spin");
+    }
+
     public Task<ApiResponse<object>> Takeoff(double altitudeMeters = 5.0, bool armFirst = true)
     {
         return PostAsync<object>("/takeoff", new TakeoffRequest
