@@ -368,3 +368,4 @@ C:\Users\mathi\Desktop\drone_praes\ITPDroneGUI\obj\Debug\net9.0\refint\ITPDroneG
 C:\Users\mathi\Desktop\drone_praes\ITPDroneGUI\obj\Debug\net9.0\ITPDroneGUI.pdb
 C:\Users\mathi\Desktop\drone_praes\ITPDroneGUI\obj\Debug\net9.0\ITPDroneGUI.genruntimeconfig.cache
 C:\Users\mathi\Desktop\drone_praes\ITPDroneGUI\obj\Debug\net9.0\ref\ITPDroneGUI.dll
+C:\Users\mathi\Desktop\drone_praes\ITPDroneGUI\obj\Debug\net9.0\compressed\i022rdgbuu-njhfnf044k.gz

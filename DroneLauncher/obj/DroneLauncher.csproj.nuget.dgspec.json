@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\mathi\\Desktop\\DroneFertig\\ItplDrone_26\\DroneLauncher\\DroneLauncher.csproj": {}
+    "C:\\Users\\mathi\\Desktop\\drone_praes\\DroneLauncher\\DroneLauncher.csproj": {}
   },
   "projects": {
-    "C:\\Users\\mathi\\Desktop\\DroneFertig\\ItplDrone_26\\DroneLauncher\\DroneLauncher.csproj": {
+    "C:\\Users\\mathi\\Desktop\\drone_praes\\DroneLauncher\\DroneLauncher.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\mathi\\Desktop\\DroneFertig\\ItplDrone_26\\DroneLauncher\\DroneLauncher.csproj",
+        "projectUniqueName": "C:\\Users\\mathi\\Desktop\\drone_praes\\DroneLauncher\\DroneLauncher.csproj",
         "projectName": "DroneLauncher",
-        "projectPath": "C:\\Users\\mathi\\Desktop\\DroneFertig\\ItplDrone_26\\DroneLauncher\\DroneLauncher.csproj",
+        "projectPath": "C:\\Users\\mathi\\Desktop\\drone_praes\\DroneLauncher\\DroneLauncher.csproj",
         "packagesPath": "C:\\Users\\mathi\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\mathi\\Desktop\\DroneFertig\\ItplDrone_26\\DroneLauncher\\obj\\",
+        "outputPath": "C:\\Users\\mathi\\Desktop\\drone_praes\\DroneLauncher\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\mathi\\AppData\\Roaming\\NuGet\\NuGet.Config"
