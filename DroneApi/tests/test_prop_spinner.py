@@ -113,7 +113,7 @@ def test_level_holds_then_halves_back_to_idle() -> None:
     clock.advance(1.0)
     spinner.tick()
     assert spinner.state()["level"] == 0.0
-    assert controller.sent_pwm[-1] == 1000, "keeps streaming idle throttle while armed"
+    assert controller.sent_pwm[-1] == ButtonConfig().idle_throttle_pwm,         "keeps streaming idle throttle while armed"
 
 
 def test_presses_inside_the_hold_stack_up_without_loss() -> None:

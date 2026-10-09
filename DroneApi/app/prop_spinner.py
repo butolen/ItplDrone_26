@@ -118,7 +118,7 @@ class PropSpinner:
 
     def level_to_pwm(self, level: float) -> int:
         if level <= 0.0:
-            return DroneController.RC_MIN
+            return self._config.idle_throttle_pwm
 
         span = self._config.max_throttle_pwm - self._config.min_throttle_pwm
         return int(round(self._config.min_throttle_pwm + min(level, 1.0) * span))

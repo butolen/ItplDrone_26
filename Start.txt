@@ -105,6 +105,13 @@ Die WebGUI verbindet sich mit:
 
 tcp:127.0.0.1:5773
 
+Hinweis fuer die Praesentation:
+- Leertaste in der WebGUI = ein Tasterdruck. Props drehen auch ohne angestecktes Board.
+- 20 Mal tippen fuer Vollgas, genau wie beim Hardware-Taster.
+- Messestand-Seite: http://localhost:5102/buzzer
+  Grosser roter Buzzer, Leertaste oder Klick. Connect-Button ist auf der Seite.
+  Von der Startseite aus ueber die zwei Karten oben erreichbar.
+
 
 5) QGroundControl verbinden
 ---------------------------

@@ -634,7 +634,8 @@ else is ignored.
 
 A background daemon thread (`DroneApi/app/button_listener.py`) reads the port and a
 press calls the same function as the API endpoint below, so both paths behave
-identically.
+identically. The **spacebar in the WebGUI** is the third path into the same function,
+for demos without the board plugged in.
 
 ### Wiring
 
@@ -651,9 +652,12 @@ Built for a fair stand: the more often the button is mashed, the faster the prop
   below half a step, then drops to idle. From full throttle that is about 1.5 s after the
   last press.
 - A background loop sends the level as RC throttle override (CH3, same path as the GUI
-  joystick) 50 times per second: level 0 is `1000`, anything above maps linearly to
-  `1300..2000`. In STABILIZE the throttle drives the motors directly, so a single press
-  is already visible.
+  joystick) 50 times per second: level 0 is `BUTTON_IDLE_THROTTLE_PWM` (`850`), anything
+  above maps linearly to `1300..2000`. In STABILIZE the throttle drives the motors
+  directly, so a single press is already visible.
+- Idle sits below the nominal `1000` stick minimum on purpose: at `1000` the motors still
+  twitch instead of standing still. `DroneController.RC_ABSOLUTE_MIN` (`800`) is the
+  channel clamp floor that lets a value under `1000` through.
 - The first press arms the drone in `STABILIZE` (after writing `DISARM_DELAY=0`). It then
   **stays armed**. If it gets disarmed (GUI, failsafe), the stream stops and the next press
   arms again. A failed arm is retried at most every 2 s.
@@ -673,9 +677,50 @@ RC override and would fight. `POST /disarm` resets the level and force-disarms
 (`param2=21196`) until a heartbeat confirms, because after a throttle burst a strapped-down drone is
 often considered flying and a normal disarm is rejected.
 
+### Spacebar in the WebGUI
+
+On the control page (`/`) the **spacebar** is a software twin of the push button:
+one press, one step up the throttle level, same loop, same decay.
+
+- It works wherever the focus is on the page, so no clicking into a panel first.
+- One keypress is one press. The firmware sends `BTN` only on the falling edge, so the
+  listener in `wwwroot/js/propSpaceKey.js` drops the browser's auto-repeat while the key
+  is held. Winding the props up to full throttle takes 20 taps, exactly like the button.
+- A press that arrives while the previous request is still open is dropped, not queued.
+- Space keeps its normal meaning while typing in a field and while a button or link has
+  the focus, so the **Spin Props** button never fires twice.
+- The flight panel shows the current press count, level and throttle, and flashes the
+  `Space` chip on every press.
+
+The API log tells the paths apart: `source=button` is the real button,
+`source=spacebar` the key, `source=api` the **Spin Props** button and
+`source=buzzer` a tap on the buzzer page.
+
+### Buzzer Page (`/buzzer`)
+
+The stand version of the same thing: one big red buzzer, nothing else to explain.
+Reached from the two cards at the top of the control page, or directly.
+
+- The spacebar works here exactly as on the control page, same module, same endpoint.
+  Clicking or tapping the dome does the same and is logged as `source=buzzer`.
+- Two states: the dome sits raised, a press drives it down, dims the gloss and sends a
+  ring outwards. It springs back after ~170 ms, so fast tapping stays readable.
+- The red glow under the dome grows with the throttle level, so the buzzer gets hotter
+  the harder it is mashed.
+- Four props around it spin in five speed tiers (idle, <25 %, <50 %, <80 %, max). Tiers
+  instead of a computed duration keep the rotation smooth while the level decays.
+- Throttle bar, press count, level, ARMED and THROTTLE LIVE come from `GET /props/state`,
+  polled every 125 ms so the decay is visible.
+- It carries its own **Connect** button (`tcp:127.0.0.1:5773`), so the stand never needs
+  the control page.
+
 ### `POST /props/spin`
 
 One virtual button press. Takes no body. The GUI calls it from the **Spin Props** button.
+
+The optional query parameter `source` only labels the log line and accepts `api`
+(default) or `spacebar`; anything else is a `400`. `button` is rejected on purpose, so
+the log never claims a hardware press that did not happen.
 
 ```json
 {
@@ -712,6 +757,7 @@ All keys are environment variables, read at API startup:
 | `BUTTON_DECAY_HALF_LIFE_SECONDS` | `0.3` | After the hold, the level halves this often. `0` drops straight to idle. |
 | `BUTTON_MIN_THROTTLE_PWM` | `1300` | Throttle for the smallest level above 0. In `ALT_HOLD` keep it above ~1600, below mid-stick means descend and the motors stay at idle. |
 | `BUTTON_MAX_THROTTLE_PWM` | `2000` | Throttle ceiling at level 1. |
+| `BUTTON_IDLE_THROTTLE_PWM` | `850` | Throttle at level 0. Deliberately under the `1000` stick minimum so the motors stand still instead of twitching. Values below ArduPilot's `FS_THR_VALUE` (default `975`) can look like a radio failsafe, so raise it if the autopilot starts complaining. |
 | `BUTTON_DISABLE_AUTO_DISARM` | `true` | Write `DISARM_DELAY=0` before arming so the drone stays armed while idle. Persists on the flight controller. |
 | `BUTTON_FORCE_ARM` | `false` | Arm with `param2=21196`, bypassing the pre-arm checks. |
 | `BUTTON_DRY_RUN` | `false` | Log presses and levels, send no MAVLink commands. |

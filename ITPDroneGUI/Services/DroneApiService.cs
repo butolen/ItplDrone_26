@@ -449,9 +449,47 @@ public class DroneApiService
         return PostAsync<object>("/disarm");
     }
 
+    public class PropsState
+    {
+        [JsonPropertyName("outcome")]
+        public string? Outcome { get; set; }
+
+        [JsonPropertyName("message")]
+        public string? Message { get; set; }
+
+        [JsonPropertyName("level")]
+        public double Level { get; set; }
+
+        [JsonPropertyName("throttle_pwm")]
+        public int ThrottlePwm { get; set; }
+
+        [JsonPropertyName("last_sent_pwm")]
+        public int? LastSentPwm { get; set; }
+
+        [JsonPropertyName("presses")]
+        public int Presses { get; set; }
+
+        [JsonPropertyName("armed")]
+        public bool Armed { get; set; }
+
+        [JsonPropertyName("streaming")]
+        public bool Streaming { get; set; }
+    }
+
     public Task<ApiResponse<object>> SpinProps()
     {
         return PostAsync<object>("/props/spin");
+    }
+
+    // Same endpoint, but the API logs which virtual control raised the throttle.
+    public Task<ApiResponse<PropsState>> SpinProps(string source)
+    {
+        return PostAsync<PropsState>($"/props/spin?source={Uri.EscapeDataString(source)}");
+    }
+
+    public Task<ApiResponse<PropsState>> GetPropsState()
+    {
+        return GetAsync<PropsState>("/props/state");
     }
 
     public Task<ApiResponse<object>> Takeoff(double altitudeMeters = 5.0, bool armFirst = true)
@@ -701,6 +739,17 @@ public class DroneApiService
 
         [JsonPropertyName("compass_heading")]
         public double CompassHeading { get; set; }
+
+        // Attitude angles in degrees, from the MAVLink ATTITUDE message. GyroX/GyroY
+        // above are rates and go back to zero once the vehicle stops moving.
+        [JsonPropertyName("roll_deg")]
+        public double RollDeg { get; set; }
+
+        [JsonPropertyName("pitch_deg")]
+        public double PitchDeg { get; set; }
+
+        [JsonPropertyName("yaw_deg")]
+        public double YawDeg { get; set; }
     }
 
     public async Task<ApiResponse<SensorData>> GetTelemetry()

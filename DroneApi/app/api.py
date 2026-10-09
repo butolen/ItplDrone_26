@@ -62,6 +62,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="Drone Control API", lifespan=lifespan)
 
+# Accepted values for POST /props/spin?source=: the GUI button, the GUI spacebar
+# and a tap on the buzzer page.
+VIRTUAL_SPIN_SOURCES = frozenset({"api", "spacebar", "buzzer"})
+
 
 def _rc_response(channels: list[int], duration_seconds: float, release_after: bool) -> dict:
     return {
@@ -168,8 +172,17 @@ def disarm() -> dict:
 
 
 @app.post("/props/spin")
-def spin_props() -> dict:
-    return prop_spinner.request_spin(source="api")
+def spin_props(source: str = "api") -> dict:
+    # "button" stays reserved for the hardware button on the serial port, so the
+    # log always tells a real press apart from a virtual one.
+    if source not in VIRTUAL_SPIN_SOURCES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown spin source '{source}', expected one of: "
+                   + ", ".join(sorted(VIRTUAL_SPIN_SOURCES))
+        )
+
+    return prop_spinner.request_spin(source=source)
 
 
 @app.get("/props/state")

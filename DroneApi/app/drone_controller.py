@@ -12,6 +12,9 @@ class DroneController:
     RC_MIN = 1000
     RC_NEUTRAL = 1500
     RC_MAX = 2000
+    # Nominal RC travel starts at RC_MIN, but an idle throttle may sit below it to keep
+    # the motors fully still, so the channel clamp uses this floor instead.
+    RC_ABSOLUTE_MIN = 800
     RC_IGNORE = 65535
     FORCE_ARM_MAGIC = 21196
 
@@ -675,7 +678,18 @@ class DroneController:
             "mag_z": self._last_mag_z if self._last_mag_z is not None else 0,
             "temperature": self._last_temperature_c if self._last_temperature_c is not None else 0.0,
             "compass_heading": self._heading_or_zero(),
+            # Attitude angles, not the gyro rates above: these hold still while the
+            # vehicle is held at a tilt, which is what an attitude indicator needs.
+            "roll_deg": self._degrees_or_zero(self._last_roll_rad),
+            "pitch_deg": self._degrees_or_zero(self._last_pitch_rad),
+            "yaw_deg": self._degrees_or_zero(self._last_yaw_rad),
         }
+
+    @staticmethod
+    def _degrees_or_zero(radians: Optional[float]) -> float:
+        if radians is None:
+            return 0.0
+        return math.degrees(radians)
 
     @staticmethod
     def _empty_telemetry() -> dict[str, Any]:
@@ -704,6 +718,9 @@ class DroneController:
             "mag_z": 0,
             "temperature": 0.0,
             "compass_heading": 0.0,
+            "roll_deg": 0.0,
+            "pitch_deg": 0.0,
+            "yaw_deg": 0.0,
         }
 
     def _heading_or_zero(self) -> float:
@@ -1011,7 +1028,7 @@ class DroneController:
     def _pwm_or_ignore(self, value: int | None) -> int:
         if value is None:
             return self.RC_IGNORE
-        return max(self.RC_MIN, min(self.RC_MAX, int(value)))
+        return max(self.RC_ABSOLUTE_MIN, min(self.RC_MAX, int(value)))
 
     @staticmethod
     def _mavlink_text_to_str(value: Any) -> str:

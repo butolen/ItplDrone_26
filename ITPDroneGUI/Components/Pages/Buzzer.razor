@@ -1,0 +1,654 @@
+@page "/buzzer"
+@implements IAsyncDisposable
+@inject DroneApiService Drone
+@inject IJSRuntime Js
+
+<PageTitle>Buzzer</PageTitle>
+
+<div class="buzzer-page">
+    <header class="buzzer-topbar">
+        <a class="pill-link" href="/">&larr; Control</a>
+        <a class="pill-link" href="/procedure">Procedures</a>
+
+        <span class="topbar-gap"></span>
+
+        <div class="link-state @(isConnected ? "online" : "offline")">
+            <span></span>
+            @(isConnected ? "Connected" : "Disconnected")
+        </div>
+        <button class="pill-button" type="button" @onclick="ToggleConnectionAsync" disabled="@isConnecting">
+            @(isConnecting ? "..." : isConnected ? "Disconnect" : "Connect")
+        </button>
+    </header>
+
+    <main class="buzzer-stage">
+        <div class="prop-field @SpinTierClass" aria-hidden="true">
+            <div class="prop prop-tl"><span></span><span></span></div>
+            <div class="prop prop-tr"><span></span><span></span></div>
+            <div class="prop prop-bl"><span></span><span></span></div>
+            <div class="prop prop-br"><span></span><span></span></div>
+        </div>
+
+        <button class="buzzer @(isPressed ? "pressed" : "")"
+                type="button"
+                style="@GlowStyle"
+                @onclick="PressAsync"
+                aria-label="Props drehen">
+            <span class="buzzer-shock" aria-hidden="true"></span>
+            <span class="buzzer-plate" aria-hidden="true"></span>
+            <span class="buzzer-dome" aria-hidden="true">
+                <span class="buzzer-gloss"></span>
+                <span class="buzzer-cap">PUSH</span>
+            </span>
+        </button>
+
+        <p class="buzzer-hint @(level > 0 ? "live" : "")">
+            Drück <kbd>Leertaste</kbd>
+        </p>
+
+        <div class="buzzer-readout">
+            <div class="throttle-meter">
+                <div class="throttle-fill" style="@FillStyle"></div>
+                <span class="throttle-value">@ThrottleLabel</span>
+            </div>
+
+            <div class="readout-pills">
+                <span class="pill">@presses @(presses == 1 ? "Druck" : "Drücke")</span>
+                <span class="pill">Level @LevelPercentLabel</span>
+                <span class="pill @(isArmed ? "on" : "")">@(isArmed ? "ARMED" : "DISARMED")</span>
+                <span class="pill @(isStreaming ? "on" : "")">@(isStreaming ? "THROTTLE LIVE" : "IDLE")</span>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(message))
+            {
+                <p class="buzzer-note">@message</p>
+            }
+        </div>
+    </main>
+</div>
+
+@code {
+    // Long enough to see the dome travel down and back up, short enough that a fast
+    // tapper still gets one animation per press.
+    private const int PressHighlightMilliseconds = 170;
+    private const int PropsPollMilliseconds = 125;
+    private const int StatusPollEveryNthPoll = 8;
+
+    private IJSObjectReference? spaceKeyModule;
+    private DotNetObjectReference<Buzzer>? spaceKeyReference;
+    private readonly CancellationTokenSource pollCancellation = new();
+
+    private bool isConnected;
+    private bool isConnecting;
+    private bool isPressed;
+    private bool isSpinRequestInFlight;
+    private bool isArmed;
+    private bool isStreaming;
+    private bool hasState;
+    private int presses;
+    private int throttlePwm;
+    private double level;
+    private string message = "";
+
+    // The API owns the idle throttle, so the page shows nothing until the first poll.
+    private string ThrottleLabel => hasState ? $"{throttlePwm} PWM" : "— PWM";
+    private string LevelPercentLabel => FormattableString.Invariant($"{Math.Clamp(level, 0, 1) * 100:0}%");
+    private string FillStyle => FormattableString.Invariant($"width:{Math.Clamp(level, 0, 1) * 100:0.##}%;");
+    private string GlowStyle => FormattableString.Invariant($"--buzzer-glow:{Math.Clamp(level, 0, 1):0.###};");
+
+    // Tiers instead of a computed duration: the props keep spinning smoothly because
+    // the animation only changes when the level crosses a threshold.
+    private string SpinTierClass => level switch
+    {
+        <= 0.001 => "spin-idle",
+        < 0.25 => "spin-1",
+        < 0.5 => "spin-2",
+        < 0.8 => "spin-3",
+        _ => "spin-4",
+    };
+
+    protected override void OnInitialized()
+    {
+        _ = PollAsync(pollCancellation.Token);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        spaceKeyReference = DotNetObjectReference.Create(this);
+        spaceKeyModule = await Js.InvokeAsync<IJSObjectReference>(
+            "import",
+            "/js/propSpaceKey.js?v=20261009-1");
+        await spaceKeyModule.InvokeVoidAsync("register", spaceKeyReference);
+    }
+
+    // Called from wwwroot/js/propSpaceKey.js, once per spacebar press.
+    [JSInvokable]
+    public Task OnSpacebarPressed() => SpinAsync("spacebar");
+
+    private Task PressAsync() => SpinAsync("buzzer");
+
+    private async Task SpinAsync(string source)
+    {
+        // Same guard as the control page: a press during an open request is dropped,
+        // never queued.
+        if (isSpinRequestInFlight) return;
+
+        isSpinRequestInFlight = true;
+        isPressed = true;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            var result = await Drone.SpinProps(source);
+
+            if (!result.Success)
+            {
+                message = result.ErrorMessage ?? result.ResponseBody ?? "Spin fehlgeschlagen";
+            }
+            else if (result.Data is not null)
+            {
+                ApplyState(result.Data);
+                message = result.Data.Outcome == "pressed" ? "" : result.Data.Message ?? "";
+            }
+        }
+        catch (Exception exception)
+        {
+            message = exception.Message;
+        }
+        finally
+        {
+            isSpinRequestInFlight = false;
+            await InvokeAsync(StateHasChanged);
+            _ = ReleasePressAsync();
+        }
+    }
+
+    private async Task ReleasePressAsync()
+    {
+        try
+        {
+            await Task.Delay(PressHighlightMilliseconds);
+            isPressed = false;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (ObjectDisposedException) { }
+        catch (JSDisconnectedException) { }
+    }
+
+    private async Task ToggleConnectionAsync()
+    {
+        if (isConnecting) return;
+
+        isConnecting = true;
+        message = "";
+
+        try
+        {
+            var result = isConnected ? await Drone.Disconnect() : await Drone.Connect();
+            if (!result.Success)
+            {
+                message = result.ErrorMessage ?? result.ResponseBody ?? "Verbindung fehlgeschlagen";
+            }
+
+            await RefreshConnectionAsync();
+        }
+        catch (Exception exception)
+        {
+            message = exception.Message;
+        }
+        finally
+        {
+            isConnecting = false;
+        }
+    }
+
+    // One loop: the level decays on its own, so it needs a fast poll to look alive,
+    // while the connection state is happy with every eighth round.
+    private async Task PollAsync(CancellationToken cancellationToken)
+    {
+        var round = 0;
+
+        try
+        {
+            await RefreshConnectionAsync();
+
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                var result = await Drone.GetPropsState();
+                if (result.Success && result.Data is not null)
+                {
+                    ApplyState(result.Data);
+                }
+
+                if (++round % StatusPollEveryNthPoll == 0)
+                {
+                    await RefreshConnectionAsync();
+                }
+
+                await InvokeAsync(StateHasChanged);
+                await Task.Delay(PropsPollMilliseconds, cancellationToken);
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (ObjectDisposedException) { }
+        catch (JSDisconnectedException) { }
+    }
+
+    private async Task RefreshConnectionAsync()
+    {
+        try
+        {
+            var status = await Drone.GetStatus();
+            isConnected = status.Contains("\"connected\":true", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception)
+        {
+            isConnected = false;
+        }
+    }
+
+    private void ApplyState(DroneApiService.PropsState state)
+    {
+        level = state.Level;
+        throttlePwm = state.ThrottlePwm;
+        presses = state.Presses;
+        isArmed = state.Armed;
+        isStreaming = state.Streaming;
+        hasState = true;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        pollCancellation.Cancel();
+
+        if (spaceKeyModule is not null)
+        {
+            try
+            {
+                await spaceKeyModule.InvokeVoidAsync("unregister");
+                await spaceKeyModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException) { }
+            catch (ObjectDisposedException) { }
+        }
+
+        spaceKeyReference?.Dispose();
+        pollCancellation.Dispose();
+    }
+}
+
+<style>
+    .buzzer-page {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        gap: 18px;
+        padding: 18px 20px 28px;
+        background:
+            radial-gradient(circle at 50% 38%, #1d2732 0%, #121821 48%, #0b0f14 100%);
+        color: #e8edf2;
+    }
+
+    .buzzer-topbar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .topbar-gap {
+        flex: 1;
+    }
+
+    .pill-link,
+    .pill-button {
+        min-height: 38px;
+        padding: 0 16px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #40505f;
+        border-radius: 6px;
+        background: #25313b;
+        color: #e8edf2;
+        font-weight: 800;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .pill-button:disabled {
+        opacity: 0.6;
+        cursor: default;
+    }
+
+    .link-state {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 132px;
+        justify-content: center;
+        padding: 8px 10px;
+        border: 1px solid #34404c;
+        border-radius: 6px;
+        color: #b7c5d1;
+        font-weight: 700;
+    }
+
+    .link-state span {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: #db5c5c;
+    }
+
+    .link-state.online span {
+        background: #4cc27a;
+    }
+
+    .buzzer-stage {
+        position: relative;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 26px;
+    }
+
+    /* --- the buzzer itself: two states, raised and struck --- */
+
+    .buzzer {
+        position: relative;
+        width: clamp(210px, 32vmin, 330px);
+        aspect-ratio: 1;
+        padding: 0;
+        border: 0;
+        background: none;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .buzzer:focus-visible {
+        outline: 2px solid #6fa8dc;
+        outline-offset: 14px;
+        border-radius: 999px;
+    }
+
+    .buzzer-plate {
+        position: absolute;
+        left: -9%;
+        right: -9%;
+        bottom: 2%;
+        height: 46%;
+        border-radius: 999px;
+        background: linear-gradient(#3c4a58, #1b2430 62%, #121a23);
+        box-shadow:
+            inset 0 2px 0 rgba(255, 255, 255, 0.14),
+            0 22px 34px rgba(0, 0, 0, 0.55);
+    }
+
+    .buzzer-dome {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        border-radius: 999px;
+        background:
+            radial-gradient(circle at 34% 26%, #ff9183 0%, #ef4036 38%, #b31a16 72%, #7e0f0d 100%);
+        box-shadow:
+            inset 0 -14px 26px rgba(0, 0, 0, 0.45),
+            inset 0 10px 18px rgba(255, 255, 255, 0.18),
+            0 18px 0 #6d100e,
+            0 30px 44px rgba(0, 0, 0, 0.6),
+            0 0 calc(30px + var(--buzzer-glow, 0) * 90px)
+                rgba(255, 86, 70, calc(0.18 + var(--buzzer-glow, 0) * 0.65));
+        transform: translateY(0);
+        transition: transform 90ms ease-out, box-shadow 140ms ease-out, background 140ms ease-out;
+    }
+
+    .buzzer.pressed .buzzer-dome {
+        background:
+            radial-gradient(circle at 34% 26%, #ff7465 0%, #d8322a 38%, #94120f 72%, #600b09 100%);
+        box-shadow:
+            inset 0 -8px 20px rgba(0, 0, 0, 0.6),
+            inset 0 6px 14px rgba(255, 255, 255, 0.12),
+            0 4px 0 #6d100e,
+            0 10px 18px rgba(0, 0, 0, 0.55),
+            0 0 calc(40px + var(--buzzer-glow, 0) * 110px)
+                rgba(255, 112, 92, calc(0.4 + var(--buzzer-glow, 0) * 0.6));
+        transform: translateY(14px);
+    }
+
+    .buzzer-gloss {
+        position: absolute;
+        top: 9%;
+        left: 16%;
+        width: 44%;
+        height: 26%;
+        border-radius: 999px;
+        background: linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0));
+        filter: blur(2px);
+        transition: opacity 120ms ease-out;
+    }
+
+    .buzzer.pressed .buzzer-gloss {
+        opacity: 0.45;
+    }
+
+    .buzzer-cap {
+        position: relative;
+        color: rgba(255, 236, 232, 0.9);
+        font-size: clamp(1.1rem, 3.4vmin, 1.8rem);
+        font-weight: 900;
+        letter-spacing: 0.32em;
+        text-indent: 0.32em;
+        text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+    }
+
+    .buzzer-shock {
+        position: absolute;
+        inset: 0;
+        border-radius: 999px;
+        border: 3px solid rgba(255, 120, 104, 0.85);
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .buzzer.pressed .buzzer-shock {
+        animation: shock 480ms ease-out;
+    }
+
+    @@keyframes shock {
+        0% {
+            opacity: 0.85;
+            transform: scale(1);
+        }
+        100% {
+            opacity: 0;
+            transform: scale(1.75);
+        }
+    }
+
+    /* --- hint --- */
+
+    .buzzer-hint {
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: #c3d2df;
+        font-size: clamp(1rem, 2.4vmin, 1.35rem);
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        animation: hint-pulse 1.9s ease-in-out infinite;
+    }
+
+    .buzzer-hint.live {
+        color: #ffd9d3;
+        animation: none;
+    }
+
+    .buzzer-hint kbd {
+        min-width: 96px;
+        padding: 8px 16px;
+        border: 1px solid #4a5a69;
+        border-bottom-width: 4px;
+        border-radius: 7px;
+        background: #26313c;
+        color: #f4f7fa;
+        font: inherit;
+        letter-spacing: 0.1em;
+        text-align: center;
+    }
+
+    @@keyframes hint-pulse {
+        0%, 100% { opacity: 0.55; }
+        50% { opacity: 1; }
+    }
+
+    /* --- readout --- */
+
+    .buzzer-readout {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        width: min(560px, 100%);
+    }
+
+    .throttle-meter {
+        position: relative;
+        width: 100%;
+        height: 26px;
+        border: 1px solid #2b3540;
+        border-radius: 999px;
+        background: #0f1419;
+        overflow: hidden;
+    }
+
+    .throttle-fill {
+        height: 100%;
+        width: 0;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #4cc27a, #d9c04a 55%, #e8503f);
+        transition: width 120ms linear;
+    }
+
+    .throttle-value {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        color: #e8edf2;
+        font-size: 0.82rem;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
+    }
+
+    .readout-pills {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .pill {
+        padding: 6px 12px;
+        border: 1px solid #2b3540;
+        border-radius: 999px;
+        background: #141a21;
+        color: #9fb1c1;
+        font-size: 0.8rem;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 0.04em;
+    }
+
+    .pill.on {
+        border-color: #4f9d69;
+        background: #132017;
+        color: #bff2cf;
+    }
+
+    .buzzer-note {
+        margin: 0;
+        color: #ffb8bf;
+        font-size: 0.88rem;
+        text-align: center;
+    }
+
+    /* --- props around the buzzer, speed follows the throttle level --- */
+
+    .prop-field {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+    }
+
+    .prop {
+        position: absolute;
+        width: clamp(54px, 9vmin, 92px);
+        aspect-ratio: 1;
+        opacity: 0.22;
+        animation: prop-spin 1s linear infinite;
+        animation-play-state: paused;
+        transition: opacity 180ms ease-out;
+    }
+
+    .prop span {
+        position: absolute;
+        top: 50%;
+        left: 0;
+        width: 100%;
+        height: 15%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, rgba(126, 160, 190, 0.1), #7ea0be, rgba(126, 160, 190, 0.1));
+        transform: translateY(-50%);
+    }
+
+    .prop span:last-child {
+        transform: translateY(-50%) rotate(90deg);
+    }
+
+    .prop-tl { top: 12%; left: 13%; }
+    .prop-tr { top: 12%; right: 13%; }
+    .prop-bl { bottom: 16%; left: 13%; }
+    .prop-br { bottom: 16%; right: 13%; }
+
+    .prop-field.spin-1 .prop { animation-duration: 1.2s; animation-play-state: running; opacity: 0.4; }
+    .prop-field.spin-2 .prop { animation-duration: 0.6s; animation-play-state: running; opacity: 0.55; }
+    .prop-field.spin-3 .prop { animation-duration: 0.3s; animation-play-state: running; opacity: 0.72; }
+    .prop-field.spin-4 .prop { animation-duration: 0.14s; animation-play-state: running; opacity: 0.9; }
+
+    @@keyframes prop-spin {
+        to { transform: rotate(360deg); }
+    }
+
+    @@media (prefers-reduced-motion: reduce) {
+        .buzzer-dome,
+        .buzzer-gloss,
+        .throttle-fill {
+            transition: none;
+        }
+        .buzzer.pressed .buzzer-shock,
+        .buzzer-hint,
+        .prop {
+            animation: none;
+        }
+    }
+
+    @@media (max-width: 620px) {
+        .prop-field {
+            display: none;
+        }
+        .buzzer-hint {
+            flex-direction: column;
+            gap: 8px;
+            text-align: center;
+        }
+    }
+</style>

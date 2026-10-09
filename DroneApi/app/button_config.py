@@ -28,6 +28,9 @@ class ButtonConfig:
     # motors directly, so the first press is clearly visible), level 1 to max_throttle_pwm.
     min_throttle_pwm: int = 1300
     max_throttle_pwm: int = 2000
+    # Throttle at level 0. Below the usual 1000 stick minimum, because at 1000 the
+    # motors still twitch instead of standing completely still.
+    idle_throttle_pwm: int = 850
     loop_hz: float = 50.0
     arm_retry_seconds: float = 2.0
     disable_auto_disarm: bool = True
@@ -49,6 +52,7 @@ class ButtonConfig:
             decay_half_life_seconds=float(os.getenv("BUTTON_DECAY_HALF_LIFE_SECONDS", "0.3")),
             min_throttle_pwm=int(os.getenv("BUTTON_MIN_THROTTLE_PWM", "1300")),
             max_throttle_pwm=int(os.getenv("BUTTON_MAX_THROTTLE_PWM", "2000")),
+            idle_throttle_pwm=int(os.getenv("BUTTON_IDLE_THROTTLE_PWM", "850")),
             disable_auto_disarm=_env_flag("BUTTON_DISABLE_AUTO_DISARM", True),
             force_arm=_env_flag("BUTTON_FORCE_ARM", False),
             dry_run=_env_flag("BUTTON_DRY_RUN", False),
